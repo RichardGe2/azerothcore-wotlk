@@ -165,6 +165,11 @@ m_transportCheckTimer(1000), lootPickPocketRestoreTime(0),  m_reactState(REACT_A
 m_DBTableGuid(0), m_equipmentId(0), m_originalEquipmentId(0), m_AlreadyCallAssistance(false),
 m_AlreadySearchedAssistance(false), m_regenHealth(true), m_AI_locked(false), m_meleeDamageSchoolMask(SPELL_SCHOOL_MASK_NORMAL), m_originalEntry(0), m_moveInLineOfSightDisabled(false), m_moveInLineOfSightStrictlyDisabled(false),
 m_homePosition(), m_transportHomePosition(), m_creatureInfo(NULL), m_creatureData(NULL), m_waypointID(0), m_path_id(0), m_formation(NULL), _lastDamagedTime(0)
+
+
+,m_richa(this),loot(0,this)
+
+
 {
     m_regenTimer = CREATURE_REGEN_INTERVAL;
     m_valuesCount = UNIT_END;
@@ -824,7 +829,16 @@ void Creature::Motion_Initialize()
 }
 
 bool Creature::Create(uint32 guidlow, Map* map, uint32 phaseMask, uint32 Entry, uint32 vehId, float x, float y, float z, float ang, const CreatureData* data)
-{ 
+{
+
+
+    m_richar_lieuOrigin = map->GetMapName();
+
+
+
+
+
+
     ASSERT(map);
     SetMap(map);
     SetPhaseMask(phaseMask, false);
@@ -1135,7 +1149,7 @@ void Creature::SelectLevel(bool changelevel)
     CreatureBaseStats const* stats = sObjectMgr->GetCreatureBaseStats(level, cInfo->unit_class);
 
     // health
-    float healthmod = _GetHealthMod(rank);
+    float healthmod = _GetHealthMod(rank,this);  m_richa.Richar_difficuly_health = healthmod;
 
     uint32 basehp = std::max<uint32>(1, stats->GenerateHealth(cInfo));
     uint32 health = uint32(basehp * healthmod);
@@ -1192,8 +1206,24 @@ void Creature::SelectLevel(bool changelevel)
     sScriptMgr->Creature_SelectLevel(cInfo, this);
 }
 
-float Creature::_GetHealthMod(int32 Rank)
+float Creature::_GetHealthMod(int32 Rank, Creature* creatureee)
 {
+
+
+
+
+    float difficultHeath = 1.0;
+    CreatureModeDataRicha::GetRichardModForMap2(creatureee, NULL, NULL, &difficultHeath);
+    if (difficultHeath > 0.0f)
+    {
+        return difficultHeath;
+    }
+
+
+
+
+
+
     switch (Rank)                                           // define rates for each elite rank
     {
         case CREATURE_ELITE_NORMAL:
@@ -1211,8 +1241,24 @@ float Creature::_GetHealthMod(int32 Rank)
     }
 }
 
-float Creature::_GetDamageMod(int32 Rank)
+float Creature::_GetDamageMod(int32 Rank, Creature* creatureee)
 {
+
+
+    if (creatureee)
+    {
+        float modRicha = CreatureModeDataRicha::GetRichardModForMap2(creatureee, NULL, NULL, NULL);
+        if (modRicha > 0.0f)
+        {
+            return modRicha;
+        }
+    }
+
+
+
+
+
+
     switch (Rank)                                           // define rates for each elite rank
     {
         case CREATURE_ELITE_NORMAL:
@@ -1230,8 +1276,21 @@ float Creature::_GetDamageMod(int32 Rank)
     }
 }
 
-float Creature::GetSpellDamageMod(int32 Rank)
-{ 
+float Creature::GetSpellDamageMod(int32 Rank, Creature* creatureee)
+{
+
+
+
+    float modRicha = CreatureModeDataRicha::GetRichardModForMap2(creatureee, NULL, NULL, NULL);
+    if (modRicha > 0.0f)
+    {
+        return modRicha;
+    }
+
+
+
+
+
     switch (Rank)                                           // define rates for each elite rank
     {
         case CREATURE_ELITE_NORMAL:
@@ -1369,7 +1428,11 @@ bool Creature::LoadCreatureFromDB(uint32 guid, Map* map, bool addToMap, bool gri
         curhealth = data->curhealth;
         if (curhealth)
         {
-            curhealth = uint32(curhealth*_GetHealthMod(GetCreatureTemplate()->rank));
+            float moddiif = _GetHealthMod(GetCreatureTemplate()->rank, this);
+            m_richa.Richar_difficuly_health = moddiif;
+
+
+            curhealth = uint32(curhealth    * moddiif   );
             if (curhealth < 1)
                 curhealth = 1;
         }

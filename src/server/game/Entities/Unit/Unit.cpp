@@ -157,6 +157,16 @@ m_movedByPlayer(NULL), m_lastSanctuaryTime(0), IsAIEnabled(false), NeedChangeAI(
 m_ControlledByPlayer(false), m_CreatedByPlayer(false), movespline(new Movement::MoveSpline()), i_AI(NULL), i_disabledAI(NULL), m_realRace(0), m_race(0), m_AutoRepeatFirstCast(false), m_procDeep(0), m_removedAurasCount(0),
 i_motionMaster(new MotionMaster(this)), m_regenTimer(0), m_ThreatManager(this), m_vehicle(NULL), m_vehicleKit(NULL), m_unitTypeMask(UNIT_MASK_NONE), m_HostileRefManager(this)
 {
+
+
+
+    m_richar_lieuOrigin = "??POSRICH??";
+
+
+
+
+
+
 #ifdef _MSC_VER
 #pragma warning(default:4355)
 #endif
@@ -10671,7 +10681,7 @@ uint32 Unit::SpellDamageBonusDone(Unit* victim, SpellInfo const* spellProto, uin
 
     // Config : RATE_CREATURE_X_SPELLDAMAGE & Do Not Modify Pet/Guardian/Mind Controled Damage
     if (GetTypeId() == TYPEID_UNIT && (!ToCreature()->IsPet() || !ToCreature()->IsGuardian() || !ToCreature()->IsControlledByPlayer()))
-        DoneTotalMod *= ToCreature()->GetSpellDamageMod(ToCreature()->GetCreatureTemplate()->rank);
+        DoneTotalMod *= ToCreature()->GetSpellDamageMod(ToCreature()->GetCreatureTemplate()->rank   , ToCreature()  );
 
     // Some spells don't benefit from pct done mods
     if (!spellProto->HasAttribute(SPELL_ATTR6_LIMIT_PCT_DAMAGE_MODS))
@@ -16438,7 +16448,7 @@ void Unit::Kill(Unit* killer, Unit* victim, bool durabilityLoss, WeaponAttackTyp
                 loot->FillLoot(lootid, LootTemplates_Creature, looter, false, false, creature->GetLootMode());
 
             if (creature->GetLootMode())
-                loot->generateMoneyLoot(creature->GetCreatureTemplate()->mingold, creature->GetCreatureTemplate()->maxgold);
+                loot->m_richa.generateMoneyLoot_richa(creature->GetCreatureTemplate()->mingold, creature->GetCreatureTemplate()->maxgold , creature);
 
             if (group)
             {

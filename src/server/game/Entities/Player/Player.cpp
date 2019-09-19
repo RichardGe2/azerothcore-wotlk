@@ -582,9 +582,29 @@ void KillRewarder::_RewardPlayer(Player* player, bool isDungeon)
     // Give reputation and kill credit only in PvE.
     if (!_isPvP || _isBattleGround)
     {
-        const float rate = _group ?
+        float rate = _group ?
             _groupRate * float(player->getLevel()) / _sumLevel : // Group rate depends on summary level.
             1.0f;                                                // Personal rate is 100%.
+
+
+
+
+
+        //////////////////////////////////////////////////////////////////////////////////////////////////
+        //ORIGINAL :  + on a un grand niveau dans le groupe, plus on ramasse toute l'XP
+        //
+        //RICHARD : nouvelle regle XP : tout le monde a la meme xp :
+        rate = _group ? _groupRate * 1.0 / (float)_group->GetMembersCount() : 1.0f;
+        player->Say("mon rate = " + std::to_string(rate), LANG_UNIVERSAL);
+        ////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
         if (_xp)
             // 4.2. Give XP.
             _RewardXP(player, rate);
@@ -671,6 +691,10 @@ void KillRewarder::Reward()
 #pragma warning(disable:4355)
 #endif
 Player::Player(WorldSession* session): Unit(true), m_mover(this)
+
+
+, m_richa(this)
+
 {
 #ifdef _MSC_VER
 #pragma warning(default:4355)
@@ -15403,7 +15427,9 @@ bool Player::CanSeeStartQuest(Quest const* quest)
 }
 
 bool Player::CanTakeQuest(Quest const* quest, bool msg)
-{ 
+{
+    m_richa.Richa_OnCanTakeQuest(quest,msg);
+
     return !DisableMgr::IsDisabledFor(DISABLE_TYPE_QUEST, quest->GetQuestId(), this)
         && SatisfyQuestStatus(quest, msg) && SatisfyQuestExclusiveGroup(quest, msg)
         && SatisfyQuestClass(quest, msg) && SatisfyQuestRace(quest, msg) && SatisfyQuestLevel(quest, msg)
@@ -25136,7 +25162,7 @@ bool Player::IsBaseRuneSlotsOnCooldown(RuneType runeType) const
 
 void Player::AutoStoreLoot(uint8 bag, uint8 slot, uint32 loot_id, LootStore const& store, bool broadcast)
 { 
-    Loot loot;
+    Loot loot(0,nullptr);
     loot.FillLoot (loot_id, store, this, true);
 
     uint32 max_slot = loot.GetMaxSlotInLootFor(this);

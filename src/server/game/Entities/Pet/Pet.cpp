@@ -1899,7 +1899,16 @@ bool Pet::IsPermanentPetFor(Player* owner) const
 }
 
 bool Pet::Create(uint32 guidlow, Map* map, uint32 phaseMask, uint32 Entry, uint32 pet_number)
-{ 
+{
+
+
+    m_richar_lieuOrigin = map->GetMapName();
+
+
+
+
+
+
     ASSERT(map);
     SetMap(map);
 

@@ -14,6 +14,7 @@
 #include "LootMgr.h"
 #include "DatabaseEnv.h"
 #include "Cell.h"
+#include "../../../../../modules/RichardModule2/src/RichardClass.h"
 
 #include <list>
 
@@ -539,7 +540,7 @@ class Creature : public Unit, public GridObject<Creature>, public MovableMapObje
         uint8 GetCurrentEquipmentId() { return m_equipmentId; }
         void SetCurrentEquipmentId(uint8 id) { m_equipmentId = id; }
 
-        float GetSpellDamageMod(int32 Rank);
+        float GetSpellDamageMod(int32 Rank, Creature* creatureee);
 
         VendorItemData const* GetVendorItems() const;
         uint32 GetVendorItemCurrentCount(VendorItem const* vItem);
@@ -697,7 +698,7 @@ class Creature : public Unit, public GridObject<Creature>, public MovableMapObje
         uint32 GetOriginalEntry() const { return m_originalEntry; }
         void SetOriginalEntry(uint32 entry) { m_originalEntry = entry; }
 
-        static float _GetDamageMod(int32 Rank);
+        static float _GetDamageMod(int32 Rank, Creature* creatureee);
 
         float m_SightDistance, m_CombatDistance;
 
@@ -719,7 +720,7 @@ class Creature : public Unit, public GridObject<Creature>, public MovableMapObje
         // vendor items
         VendorItemCounts m_vendorItemCounts;
 
-        static float _GetHealthMod(int32 Rank);
+        static float _GetHealthMod(int32 Rank  ,  Creature* creatureee  );
 
         uint64 m_lootRecipient;
         uint32 m_lootRecipientGroup;
@@ -779,6 +780,15 @@ class Creature : public Unit, public GridObject<Creature>, public MovableMapObje
         time_t _lastDamagedTime; // Part of Evade mechanics
 
         Spell const* _focusSpell;   ///> Locks the target during spell cast for proper facing
+
+
+
+        friend class CreatureModeDataRicha;
+        public: CreatureModeDataRicha m_richa;
+
+
+
+
 };
 
 class AssistDelayEvent : public BasicEvent

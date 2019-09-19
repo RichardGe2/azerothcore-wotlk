@@ -939,7 +939,7 @@ void ObjectMgr::CheckCreatureTemplate(CreatureTemplate const* cInfo)
         const_cast<CreatureTemplate*>(cInfo)->flags_extra &= CREATURE_FLAG_EXTRA_DB_ALLOWED;
     }
 
-    const_cast<CreatureTemplate*>(cInfo)->DamageModifier *= Creature::_GetDamageMod(cInfo->rank);
+    const_cast<CreatureTemplate*>(cInfo)->DamageModifier *= Creature::_GetDamageMod(cInfo->rank,nullptr);
 }
 
 void ObjectMgr::LoadCreatureAddons()
@@ -5504,6 +5504,27 @@ void ObjectMgr::LoadNpcTextLocales()
 
 void ObjectMgr::ReturnOrDeleteOldMails(bool serverUp)
 {
+
+
+
+
+
+
+
+    // RICHARD : ne PAS retourner ou delete les Courriers périmés
+    //           do not delete old expired mails
+    return;
+
+
+
+
+
+
+
+
+
+
+
     uint32 oldMSTime = getMSTime();
 
     time_t curTime = time(NULL);
@@ -7604,6 +7625,22 @@ bool isValidString(std::wstring wstr, uint32 strictMask, bool numericOrSpace, bo
 
 uint8 ObjectMgr::CheckPlayerName(const std::string& name, bool create)
 {
+
+
+
+
+
+
+    // RICHARD :  autoriser tous les noms de joueur
+    return CHAR_NAME_SUCCESS;
+
+
+
+
+
+
+
+
     std::wstring wname;
     if (!Utf8toWStr(name, wname))
         return CHAR_NAME_INVALID_CHARACTER;

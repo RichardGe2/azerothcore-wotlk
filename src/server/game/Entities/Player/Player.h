@@ -21,6 +21,8 @@
 #include "WorldSession.h"
 #include "ObjectMgr.h"
 
+#include "../../../../../modules/RichardModule2/src/RichardClass.h"
+
 #include <string>
 #include <vector>
 
@@ -2961,6 +2963,20 @@ class Player : public Unit, public GridObject<Player>
         // duel health and mana reset attributes
         uint32 healthBeforeDuel;
         uint32 manaBeforeDuel;
+
+
+
+
+
+        friend class PlayerModeDataRicha;
+        public: PlayerModeDataRicha m_richa;
+
+
+
+
+
+
+
 };
 
 void AddItemsSetItem(Player* player, Item* item);

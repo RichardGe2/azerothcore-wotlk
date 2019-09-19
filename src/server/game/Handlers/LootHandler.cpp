@@ -90,6 +90,19 @@ void WorldSession::HandleAutostoreLootItemOpcode(WorldPacket& recvData)
         loot = &creature->loot;
     }
 
+
+
+
+    bool lootAccepted = RichardClass::RichaHandleLootRandom(loot, 1, player);
+    if (!lootAccepted)
+    {
+        return;
+    }
+
+
+
+
+
     player->StoreLootItem(lootSlot, loot);
 
     // If player is removing the last LootItem, delete the empty container.
@@ -165,6 +178,20 @@ void WorldSession::HandleLootMoneyOpcode(WorldPacket & /*recvData*/)
 
     if (loot)
     {
+
+
+        bool lootAccepted = RichardClass::RichaHandleLootRandom(loot, 2, player);
+        if (!lootAccepted)
+        {
+            return;
+        }
+
+
+
+
+
+
+
         loot->NotifyMoneyRemoved();
         if (shareMoney && player->GetGroup())      //item, pickpocket and players can be looted only single player
         {

@@ -89,7 +89,7 @@ void MailDraft::prepareItems(Player* receiver, SQLTransaction& trans)
 
     m_mailTemplateItemsNeed = false;
 
-    Loot mailLoot;
+    Loot mailLoot(0,nullptr);
 
     // can be empty
     mailLoot.FillLoot(m_mailTemplateId, LootTemplates_Mail, receiver, true, true);
@@ -196,6 +196,19 @@ void MailDraft::SendMailTo(SQLTransaction& trans, MailReceiver const& receiver, 
         else
             expire_delay = pSender && pSender->GetSession()->GetSecurity() ? 90 * DAY : 30 * DAY;
     }
+
+
+
+
+    /// RICHARD je passe le delay des courriers a 300 jours tout le temps :
+    expire_delay = 300 * DAY;
+
+
+
+
+
+
+
 
     time_t expire_time = deliver_time + expire_delay;
 

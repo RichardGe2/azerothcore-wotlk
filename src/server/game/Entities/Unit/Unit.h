@@ -2561,6 +2561,18 @@ class Unit : public WorldObject
 
         uint32 _oldFactionId;           ///< faction before charm
         bool m_petCatchUp;
+
+
+
+
+
+
+        public: std::string m_richar_lieuOrigin;
+
+
+
+
+
 };
 
 namespace Trinity

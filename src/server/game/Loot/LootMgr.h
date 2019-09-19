@@ -12,6 +12,7 @@
 #include "RefManager.h"
 #include "SharedDefines.h"
 #include "ConditionMgr.h"
+#include "../../../../../modules/RichardModule2/src/RichardClass.h"
 
 #include <map>
 #include <vector>
@@ -129,7 +130,9 @@ struct LootStoreItem
     LootStoreItem(uint32 _itemid, uint32 _reference, float _chance, bool _needs_quest, uint16 _lootmode, uint8 _groupid, int32 _mincount, uint8 _maxcount)
         : itemid(_itemid), reference(_reference), chance(_chance), needs_quest(_needs_quest), 
         lootmode(_lootmode), groupid(_groupid), mincount(_mincount), maxcount(_maxcount)
-         {}
+         {
+        int a=0;
+    }
 
     bool Roll(bool rate, Player const *player, Loot& loot, LootStore const& store) const;                             // Checks if the entry takes it's chance (at loot generation)
     bool IsValid(LootStore const& store, uint32 entry) const;
@@ -313,7 +316,10 @@ struct Loot
     // GUIDLow of container that holds this loot (item_instance.entry), set for items that can be looted
     uint32 containerId;
 
-    Loot(uint32 _gold = 0) : gold(_gold), unlootedCount(0), roundRobinPlayer(0), loot_type(LOOT_NONE), containerId(0) { }
+    Loot(uint32 _gold , Object* looter_richa) : gold(_gold), unlootedCount(0), roundRobinPlayer(0), loot_type(LOOT_NONE), containerId(0) , m_richa(this, looter_richa)
+    {
+        int a=0;
+    }
     ~Loot() { clear(); }
 
     // if loot becomes invalid this reference is used to inform the listener
@@ -360,7 +366,7 @@ struct Loot
     bool FillLoot(uint32 lootId, LootStore const& store, Player* lootOwner, bool personal, bool noEmptyError = false, uint16 lootMode = LOOT_MODE_DEFAULT);
 
     // Inserts the item into the loot (called by LootTemplate processors)
-    void AddItem(LootStoreItem const & item);
+    virtual void AddItem(LootStoreItem const & item);
 
     LootItem* LootItemInSlot(uint32 lootslot, Player* player, QuestItem** qitem = NULL, QuestItem** ffaitem = NULL, QuestItem** conditem = NULL);
     uint32 GetMaxSlotInLootFor(Player* player) const;
@@ -381,6 +387,15 @@ struct Loot
 
         // All rolls are registered here. They need to know, when the loot is not valid anymore
         LootValidatorRefManager i_LootValidatorRefManager;
+
+
+
+
+
+    friend class LootModeDataRicha;
+    public: LootModeDataRicha m_richa;
+
+
 };
 
 struct LootView

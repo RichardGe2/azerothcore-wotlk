@@ -47,7 +47,7 @@ class LootItemStorage
         void RemoveStoredLootMoney(uint32 containerId, Loot* loot);
         void RemoveStoredLoot(uint32 containerId);
 
-    private:
+    //private:
         LootItemContainer lootItemStore;
 };
 

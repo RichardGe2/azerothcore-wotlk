@@ -14,7 +14,7 @@
 #include "GossipDef.h"
 #include "World.h"
 
-Corpse::Corpse(CorpseType type) : WorldObject(type != CORPSE_BONES), m_type(type)
+Corpse::Corpse(CorpseType type) : WorldObject(type != CORPSE_BONES), m_type(type), loot(0,nullptr)
 {
     m_objectType |= TYPEMASK_CORPSE;
     m_objectTypeId = TYPEID_CORPSE;

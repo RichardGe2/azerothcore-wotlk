@@ -373,6 +373,15 @@ LootItem::LootItem(LootStoreItem const& li)
 
     ItemTemplate const* proto = sObjectMgr->GetItemTemplate(itemid);
     freeforall  = proto && (proto->Flags & ITEM_PROTO_FLAG_PARTY_LOOT);
+
+
+
+
+    freeforall = RichardClass::Richard_lootCommunPourObjDeQuest(li.itemid) ? true : freeforall;
+
+
+
+
     follow_loot_rules = proto && (proto->FlagsCu & ITEM_FLAGS_CU_FOLLOW_LOOT_RULES);
 
     needs_quest = li.needs_quest;
@@ -474,6 +483,16 @@ bool Loot::FillLoot(uint32 lootId, LootStore const& store, Player* lootOwner, bo
     quest_items.reserve(MAX_NR_QUEST_ITEMS);
 
     tab->Process(*this, store, lootMode, lootOwner);          // Processing is done there, callback via Loot::AddItem()
+
+
+
+    RichardClass::OnFillLoot( lootId, store,  lootOwner,  personal,  noEmptyError,  lootMode, this );
+
+
+
+
+
+
 
     // Setting access rights for group loot case
     Group* group = lootOwner->GetGroup();
