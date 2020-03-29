@@ -15,7 +15,10 @@
 #include "LootItemStorage.h"
 #include "Group.h"
 #include "WorldDatabase.h"
-
+#include <ctime>
+#include <iostream>
+#include <vector>
+#include <string>
 
 #define ZONE_UPDATE_INTERVAL (2*IN_MILLISECONDS)
 
@@ -556,28 +559,29 @@ bool  RichardClass::ExtractUInt32Base(char** args, uint32& val, uint32 base)
 }
 
 
-//convert example :
-// "|cff9d9d9d|Hitem:3965:0:0:0|h[Gants en cuir épais]|h|r"  -->  3965 
-// return -1 if fail.
+// exemple pour WOTLK :
+// " |cffffffff|Hitem:6507:0:0:0:0:0:0:0:3|h[Brassards d'infanterie]|h|r"   ( avec un espace au debut ! )
+//  va output :  6507
 unsigned long RichardClass::Richa_NiceLinkToIitemID(const char* str)
 {
 	std::string input = std::string(str);
 
 	if (
 		input.size() > 24
-		&& input[0] == '|'
-		&&  input[1] == 'c'
-		&&  input[10] == '|'
-		&&  input[11] == 'H'
-		&&  input[12] == 'i'
-		&&  input[13] == 't'
-		&&  input[14] == 'e'
-		&&  input[15] == 'm'
-		&&  input[16] == ':'
+		&& input[0] == ' '
+		&& input[1] == '|'
+		&&  input[2] == 'c'
+		&&  input[11] == '|'
+		&&  input[12] == 'H'
+		&&  input[13] == 'i'
+		&&  input[14] == 't'
+		&&  input[15] == 'e'
+		&&  input[16] == 'm'
+		&&  input[17] == ':'
 		)
 	{
 		std::string id = "";
-		for (int i = 17; ; i++)
+		for (int i = 18; ; i++)
 		{
 			if (i >= input.size())
 			{
@@ -600,89 +604,18 @@ unsigned long RichardClass::Richa_NiceLinkToIitemID(const char* str)
 
 //deja, on regarde si   text est un lien vers un objet  (joueur a fait  Majuscule + click gauche sur objet)
 //
-// exemple :  |cffffffff|Hitem:2692:0:0:0|h[Hot Spices]|h|r
-// exemple :  |cff1eff00|Hitem:70010:0:0:0|h[YouhaiCoin Paragon]|h|r
-//exemple :   |cffa335ee|Hitem:13353:0:0:0|h[Book of the Dead]|h|r
-//
 // exemple pour WOTLK :
-// " |cffffffff|Hitem:6948:0:0:0:0:0:0:0:1|h[Pierre de foyer]|h|r"   ( avec un espace au debut ! )
+// " |cffffffff|Hitem:6507:0:0:0:0:0:0:0:3|h[Brassards d'infanterie]|h|r"   ( avec un espace au debut ! )
 //
 //je crois que le premier nombre est la couleur
 bool RichardClass::ExecuteCommand_richard_A(const char* text, Player* playerrrr)
 {
 
-	//
-	//
-	// TODO : utiliser : Richa_NiceLinkToIitemID plutot,  pour unifier
-	//
-	//
-
-	if (text == 0)
+	unsigned long numberID = RichardClass::Richa_NiceLinkToIitemID(text);
+	if ( numberID == -1 )
 	{
 		return false;
 	}
-
-	if (text[0] == 0)
-	{
-		return false;
-	}
-
-	const char beg[] = " |cffffffff|Hitem:";
-
-	int i = 0;
-	for (;; i++)
-	{
-		if (beg[i] == 0)
-		{
-			break;
-		}
-
-		if (i >= 3 && i <= 10)
-		{
-			if (text[i] >= '0' && text[i] <= '9'
-				|| text[i] >= 'a' && text[i] <= 'f')
-			{
-				// ok : info sur la couleur
-			}
-			else
-			{
-				return false;
-			}
-
-		}
-
-
-		else if (text[i] != beg[i])
-		{
-			return false;
-		}
-	}
-
-	char number[1024];
-	int j = 0;
-	for (;; i++)
-	{
-		if (text[i] == ':')
-		{
-			break;
-		}
-
-		if (text[i] == 0)
-		{
-			return false;
-		}
-
-		if (j > 100)
-		{
-			return false;
-		}
-
-		number[j] = text[i]; j++;
-		number[j] = 0;
-
-	}
-
-	int numberID = atoi(number);
 
 	bool chargeee = ExecuteCommand_richard_2(numberID, playerrrr);
 
@@ -694,20 +627,10 @@ bool RichardClass::ExecuteCommand_richard_A(const char* text, Player* playerrrr)
 bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 {
 
-
-	// CETTE FONCTION EST  COMPLIQUEE a porter dans azecore ... TODO : la recoder. ......
-
-	return false;
-	/*
-
-
-
-
-
-
 	char messageOUt[2048];
 
-	ItemPrototype const* itemProtoype = sItemStorage.LookupEntry<ItemPrototype>(numberID);
+	//ItemPrototype const* itemProtoype = sItemStorage.LookupEntry<ItemPrototype>(numberID);
+	ItemTemplate const* itemProtoype = sObjectMgr->GetItemTemplate(numberID);
 	if (!itemProtoype)
 		return false;
 
@@ -720,7 +643,7 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 
 	//Player* player = m_session->GetPlayer();
 
-	if (player == 0)
+	if (player == nullptr)
 	{
 		return false;
 	}
@@ -728,21 +651,22 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 
 
 
-
+	
 
 
 	bool developerInfo = false;
-	ObjectGuid const& guiiddd = player->GetObjectGuid();
-	uint32 account_guid = sObjectMgr.GetPlayerAccountIdByGUID(guiiddd);
+	uint64_t guiiddd = player->GetGUID();
+	uint32 account_guid = sObjectMgr->GetPlayerAccountIdByGUID(guiiddd);
 
 	// #LISTE_ACCOUNT_HERE  -   ce hashtag repere tous les endroit que je dois updater quand je rajoute un nouveau compte - ou perso important
+	/*
 	if (account_guid == 5  // richard
 		|| account_guid == 7  // grandjuge
 		|| account_guid == 10  // richard2
 		)
-	{
+	{*/
 		developerInfo = true;
-	}
+	//}
 
 
 
@@ -759,7 +683,7 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 	}
 
 
-	sprintf(messageOUt, "name=%s", itemProtoype->Name1);
+	sprintf(messageOUt, "name=%s", itemProtoype->Name1.c_str());
 	ChatHandler(player->GetSession()).SendSysMessage(messageOUt);
 
 
@@ -873,40 +797,7 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 
 		std::string nameToSearch = "";
 
-		// #LISTE_ACCOUNT_HERE  -   ce hashtag repere tous les endroit que je dois updater quand je rajoute un nouveau compte - ou perso important
-		if (strcmp(player->GetName(), "Bouzigouloum") == 0)
-		{
-			nameToSearch = "Boulette";
-		}
-		else if (strcmp(player->GetName(), "Adibou") == 0)
-		{
-			nameToSearch = "Bouillot";
-		}
-		else if (strcmp(player->GetName(), "Grandtroll") == 0)
-		{
-			nameToSearch = "Bouillot"; // for debug
-		}
-		else if (strcmp(player->GetName(), "Grandjuge") == 0)
-		{
-			nameToSearch = "Boulette"; // for debug
-		}
-		else if (strcmp(player->GetName(), "Bouillot") == 0)
-		{
-			nameToSearch = "Bouillot"; // for debug
-		}
-		else if (strcmp(player->GetName(), "Boulette") == 0)
-		{
-			nameToSearch = "Boulette"; // for debug
-		}
-		else
-		{
-			sprintf(messageOUt, "INFO : pas de perso primaire associe a ce perso");
-			ChatHandler(player->GetSession()).SendSysMessage(messageOUt);
-			return false;
-		}
-
-		// en fait je pense que c'est mieux d'utiliser la liste ci dessous plutot que la liste ci dessus
-		// c'est mieux de faire ca dans tous les cas ,  c'est a dire associer un metier a notre premier perso :
+		// associer un metier a notre premier perso :
 		// lister ici LE perso PRINCIPAL qui est responsable du metier.
 		if (false) {}
 		if (itemProtoype->RequiredSkill == SKILL_COOKING
@@ -1136,7 +1027,7 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 	else
 	{
 
-		bool forceLootCommun = LootItem::Richard_lootCommunPourObjDeQuest(numberID);
+		bool forceLootCommun = RichardClass::Richard_lootCommunPourObjDeQuest(numberID);
 		if (forceLootCommun)
 		{
 			sprintf(messageOUt, "objet sera FORCE en loot commun.");
@@ -1184,9 +1075,9 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 		char command1[2048];
 		sprintf(command1, "SELECT entry FROM reference_loot_template WHERE item = '%d' ", itemmmCommand);
 
-		if (QueryResult* result1 = WorldDatabase.PQuery(command1))
+		if (QueryResult result1 = WorldDatabase.PQuery(command1))
 		{
-			BarGoLink bar(result1->GetRowCount());
+			BarGoLink_richa bar(result1->GetRowCount());
 			do
 			{
 				bar.step();
@@ -1197,12 +1088,12 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 				{
 					int32 entryItem = fields->GetInt32();
 					char command2[2048];
-					sprintf(command2, "SELECT ChanceOrQuestChance FROM reference_loot_template WHERE item = '%d' AND entry = '%d' ", itemmmCommand, entryItem);
+					sprintf(command2, "SELECT Chance FROM reference_loot_template WHERE item = '%d' AND entry = '%d' ", itemmmCommand, entryItem);
 
 
 
 
-					if (QueryResult* result2 = WorldDatabase.PQuery(command2))
+					if (QueryResult result2 = WorldDatabase.PQuery(command2))
 					{
 
 						if (result2->GetRowCount() != 1)
@@ -1210,12 +1101,12 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 							// ERROR ?????  LA COMMANDE  doit donner pile 1 resultat
 							sprintf(messageOUt, "ERROR 303 avec le taux de loot");
 							ChatHandler(player->GetSession()).SendSysMessage(messageOUt);
-							delete result2;
-							delete result1;
+							//delete result2;
+							//delete result1;
 							return false;
 						}
 
-						BarGoLink bar(result2->GetRowCount());
+						BarGoLink_richa bar(result2->GetRowCount());
 						do
 						{
 							bar.step();
@@ -1231,14 +1122,14 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 
 						} while (result2->NextRow());
 
-						delete result2;
+						//delete result2;
 					}
 					else
 					{
 						// ERROR ?????
 						sprintf(messageOUt, "ERROR 104 avec le taux de loot");
 						ChatHandler(player->GetSession()).SendSysMessage(messageOUt);
-						delete result1;
+						//delete result1;
 						return false;
 					}
 
@@ -1249,12 +1140,12 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 				{
 					int32 entryItem = fields->GetInt32();
 					char command2[2048];
-					sprintf(command2, "SELECT ChanceOrQuestChance FROM reference_loot_template WHERE entry = '%d' ", entryItem);
+					sprintf(command2, "SELECT Chance FROM reference_loot_template WHERE entry = '%d' ", entryItem);
 
-					if (QueryResult* result2 = WorldDatabase.PQuery(command2))
+					if (QueryResult result2 = WorldDatabase.PQuery(command2))
 					{
 
-						BarGoLink bar(result2->GetRowCount());
+						BarGoLink_richa bar(result2->GetRowCount());
 						do
 						{
 							bar.step();
@@ -1268,14 +1159,14 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 
 						} while (result2->NextRow());
 
-						delete result2;
+						//delete result2;
 					}
 					else
 					{
 						// ERROR ?????
 						sprintf(messageOUt, "ERROR 153 avec le taux de loot");
 						ChatHandler(player->GetSession()).SendSysMessage(messageOUt);
-						delete result1;
+						//delete result1;
 						return false;
 					}
 
@@ -1291,7 +1182,7 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 					// ERROR ?????
 					sprintf(messageOUt, "ERROR 337 avec le taux de loot");
 					ChatHandler(player->GetSession()).SendSysMessage(messageOUt);
-					delete result1;
+					//delete result1;
 					return false;
 				}
 
@@ -1300,7 +1191,7 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 				int aaaa = 0;
 
 			} while (result1->NextRow());
-			delete result1;
+			//delete result1;
 		}
 		else
 		{
@@ -1316,9 +1207,9 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 		char command1[2048];
 		sprintf(command1, "SELECT entry FROM creature_loot_template WHERE item = '%d' ", itemmmCommand);
 
-		if (QueryResult* result1 = WorldDatabase.PQuery(command1))
+		if (QueryResult result1 = WorldDatabase.PQuery(command1))
 		{
-			BarGoLink bar(result1->GetRowCount());
+			BarGoLink_richa bar(result1->GetRowCount());
 			do
 			{
 				bar.step();
@@ -1327,12 +1218,12 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 				int32 entryItem = fields->GetInt32();
 
 				char command2[2048];
-				sprintf(command2, "SELECT ChanceOrQuestChance FROM creature_loot_template WHERE item = '%d' AND entry = '%d' ", itemmmCommand, entryItem);
+				sprintf(command2, "SELECT Chance FROM creature_loot_template WHERE item = '%d' AND entry = '%d' ", itemmmCommand, entryItem);
 
 
 
 
-				if (QueryResult* result2 = WorldDatabase.PQuery(command2))
+				if (QueryResult result2 = WorldDatabase.PQuery(command2))
 				{
 
 					if (result2->GetRowCount() != 1)
@@ -1340,12 +1231,12 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 						// ERROR ?????
 						sprintf(messageOUt, "ERROR 907 avec le taux de loot");
 						ChatHandler(player->GetSession()).SendSysMessage(messageOUt);
-						delete result2;
-						delete result1;
+						//delete result2;
+						//delete result1;
 						return false;
 					}
 
-					BarGoLink bar(result2->GetRowCount());
+					BarGoLink_richa bar(result2->GetRowCount());
 					do
 					{
 						bar.step();
@@ -1359,14 +1250,14 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 
 					} while (result2->NextRow());
 
-					delete result2;
+					//delete result2;
 				}
 				else
 				{
 					// ERROR ?????
 					sprintf(messageOUt, "ERROR 104 avec le taux de loot");
 					ChatHandler(player->GetSession()).SendSysMessage(messageOUt);
-					delete result1;
+					//delete result1;
 					return false;
 				}
 
@@ -1378,7 +1269,7 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 				int aaaa = 0;
 
 			} while (result1->NextRow());
-			delete result1;
+			//delete result1;
 		}
 		else
 		{
@@ -1393,11 +1284,11 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 	{
 		int itemmmCommand = numberID;
 		char command1[2048];
-		sprintf(command1, "SELECT entry FROM creature_loot_template WHERE mincountOrRef = '-%d' ", listChances_fromReference[iRef].entry);
+		sprintf(command1, "SELECT entry FROM creature_loot_template WHERE Item = '%d' ", listChances_fromReference[iRef].entry);
 
-		if (QueryResult* result1 = WorldDatabase.PQuery(command1))
+		if (QueryResult result1 = WorldDatabase.PQuery(command1))
 		{
-			BarGoLink bar(result1->GetRowCount());
+			BarGoLink_richa bar(result1->GetRowCount());
 			do
 			{
 				bar.step();
@@ -1406,12 +1297,12 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 				int32 entryItem = fields->GetInt32();
 
 				char command2[2048];
-				sprintf(command2, "SELECT ChanceOrQuestChance FROM creature_loot_template WHERE mincountOrRef = '-%d' AND entry = '%d' ", listChances_fromReference[iRef].entry, entryItem);
+				sprintf(command2, "SELECT Chance FROM creature_loot_template WHERE Item = '%d' AND entry = '%d' ", listChances_fromReference[iRef].entry, entryItem);
 
 
 
 
-				if (QueryResult* result2 = WorldDatabase.PQuery(command2))
+				if (QueryResult result2 = WorldDatabase.PQuery(command2))
 				{
 
 					if (result2->GetRowCount() != 1)
@@ -1419,12 +1310,12 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 						// ERROR ?????
 						sprintf(messageOUt, "ERROR 343 avec le taux de loot");
 						ChatHandler(player->GetSession()).SendSysMessage(messageOUt);
-						delete result2;
-						delete result1;
+						//delete result2;
+						//delete result1;
 						return false;
 					}
 
-					BarGoLink bar(result2->GetRowCount());
+					BarGoLink_richa bar(result2->GetRowCount());
 					do
 					{
 						bar.step();
@@ -1438,14 +1329,14 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 
 					} while (result2->NextRow());
 
-					delete result2;
+					//delete result2;
 				}
 				else
 				{
 					// ERROR ?????
 					sprintf(messageOUt, "ERROR 104 avec le taux de loot");
 					ChatHandler(player->GetSession()).SendSysMessage(messageOUt);
-					delete result1;
+					//delete result1;
 					return false;
 				}
 
@@ -1457,7 +1348,7 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 				int aaaa = 0;
 
 			} while (result1->NextRow());
-			delete result1;
+			//delete result1;
 		}
 		else
 		{
@@ -1502,7 +1393,7 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 
 				std::string creatNamStr = "<nom inconnu ?>";
 
-				CreatureInfo const* creatureProto = sCreatureStorage.LookupEntry<CreatureInfo>(listChances_fromCreature[i].entry);
+				CreatureTemplate const* creatureProto = sObjectMgr->GetCreatureTemplate(listChances_fromCreature[i].entry);
 				if (creatureProto)
 				{
 					creatNamStr = std::string(creatureProto->Name);
@@ -1597,7 +1488,7 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 
 	return true;
 
-	*/
+	
 
 }
 
@@ -1661,10 +1552,12 @@ std::string RichardClass::Richa_itemIdToNiceLink(unsigned long itemID)
 	}
 
 
-	//std::string out;
+	// " |cffffffff|Hitem:6507:0:0:0:0:0:0:0:3|h[Brassards d'infanterie]|h|r"
+	// je crois que le dernier nombre correspond au  reporter_level  ( genre 3 si c'est un GM ) .. je vais le laisser a 0 pour tout le monde
+	// voir C:\azecore\git\azerothcore\src\server\game\Chat\ChatLink.cpp  qui detail les argument de chaque link de chat
 
 	char outStr[4096];
-	sprintf(outStr, "|cff%s|Hitem:%d:0:0:0|h[%s]|h|r", qualityStr.c_str(), itemID, itemName.c_str());
+	sprintf(outStr, " |cff%s|Hitem:%d:0:0:0:0:0:0:0:0|h[%s]|h|r", qualityStr.c_str(), itemID, itemName.c_str());
 
 	return std::string(outStr);
 }
@@ -2423,8 +2316,8 @@ void PlayerModeDataRicha::Richard_GetListExplored(std::map<std::string, std::vec
 }
 
 
-void PlayerModeDataRicha::richard_importVariables_END(uint64 guid__)
-{
+//void PlayerModeDataRicha::richard_importVariables_END(uint64 guid__)
+//{
 
 	/*
 	int lvl = getLevel();
@@ -2458,7 +2351,7 @@ void PlayerModeDataRicha::richard_importVariables_END(uint64 guid__)
 	}
 	m_richar_paragonProgressFromFile = 0;
 	*/
-}
+//}
 
 
 void PlayerModeDataRicha::richa_exportTo_richaracter_(
@@ -3035,7 +2928,7 @@ void PlayerModeDataRicha::richa_exportTo_ristat_()
 
 	// id dans la base de donnée
 	const uint32 coinItemID1 = 70010; // YouhaiCoin Paragon
-	const uint32 coinItemID2 = 70007; // YouhaiCoin Cadeau
+	//const uint32 coinItemID2 = 70007; // YouhaiCoin Cadeau <-- retiré de WOTLK
 
 	char nameFile[2048];
 	const char* playerName = m_thisOwner->GetName().c_str();
@@ -3063,15 +2956,17 @@ void PlayerModeDataRicha::richa_exportTo_ristat_()
 	fwrite(outt, 1, strlen(outt), fout);
 
 
-	int nbyouhaiCadeau = richard_countItem(coinItemID2, true, true, true, true);
+	//int nbyouhaiCadeau = richard_countItem(coinItemID2, true, true, true, true);
 	int nbyouhaiPara = richard_countItem(coinItemID1, true, true, true, true);
 
-	int nbyouhaiCadeau_2 = m_thisOwner->GetItemCount(coinItemID2, true);
+	//int nbyouhaiCadeau_2 = m_thisOwner->GetItemCount(coinItemID2, true);
 	int nbyouhaiPara_2 = m_thisOwner->GetItemCount(coinItemID1, true);
 
 
-	if (nbyouhaiCadeau != nbyouhaiCadeau_2
-		|| nbyouhaiPara != nbyouhaiPara_2
+	if (
+		//nbyouhaiCadeau != nbyouhaiCadeau_2
+		//||
+		nbyouhaiPara != nbyouhaiPara_2
 		)
 	{
 		// ERREUR GRAVE !
@@ -3081,19 +2976,22 @@ void PlayerModeDataRicha::richa_exportTo_ristat_()
 	}
 
 
-	sprintf(outt, "youhaicoin,%d\r\n", nbyouhaiPara + nbyouhaiCadeau);
+	sprintf(outt, "youhaicoin,%d\r\n", nbyouhaiPara  /*+ nbyouhaiCadeau*/ );
 	fwrite(outt, 1, strlen(outt), fout);
 
 	sprintf(outt, "youhaicoin_paragon,%d\r\n", nbyouhaiPara);
 	fwrite(outt, 1, strlen(outt), fout);
 
-	sprintf(outt, "youhaicoin_cadeau,%d\r\n", nbyouhaiCadeau);
+	sprintf(outt, "youhaicoin_cadeau,%d\r\n", /*nbyouhaiCadeau*/ 0 );
 	fwrite(outt, 1, strlen(outt), fout);
 
 	sprintf(outt, "level,%d\r\n", m_thisOwner->getLevel());
 	fwrite(outt, 1, strlen(outt), fout);
 
 	sprintf(outt, "xp,%d\r\n", m_thisOwner->GetUInt32Value(PLAYER_XP));
+	fwrite(outt, 1, strlen(outt), fout);
+
+	sprintf(outt, "gold,%d\r\n", m_thisOwner->GetMoney());
 	fwrite(outt, 1, strlen(outt), fout);
 
 	sprintf(outt, "xpNextLevel,%d\r\n", m_thisOwner->GetUInt32Value(PLAYER_NEXT_LEVEL_XP));
@@ -3472,7 +3370,36 @@ void PlayerModeDataRicha::richa_exportTo_ristat_()
 
 
 
+	// ACHIEVEMENT TODO
+	// en gros le but est de sauvegarder la database  character_achievement_progress  pour chaque perso
+	// mais j'ai pas encore tout bien compris
+	{
+	    // suppress sending packets
+		for (uint32 i=0; i<ACHIEVEMENT_CRITERIA_TYPE_TOTAL; ++i)
+		{
+			AchievementCriteriaTypes typeAchievement = (AchievementCriteriaTypes(i));
+			if ( typeAchievement == ACHIEVEMENT_CRITERIA_TYPE_MONEY_FROM_QUEST_REWARD )
+			{
 
+			}
+		}
+
+		m_thisOwner->m_achievementMgr; // <--- ca c'est le tracker pour le perso
+
+		AchievementCriteriaEntryList const* achievementCriteriaList = sAchievementMgr->GetAchievementCriteriaByType(ACHIEVEMENT_CRITERIA_TYPE_MONEY_FROM_QUEST_REWARD);
+		int counter = 0;
+		for (AchievementCriteriaEntryList::const_iterator i = achievementCriteriaList->begin(); i != achievementCriteriaList->end(); ++i)
+		{
+			AchievementCriteriaEntry const* achievementCriteria = (*i);
+			AchievementEntry const* achievement = sAchievementStore.LookupEntry(achievementCriteria->referredAchievement);
+			if (!achievement)
+				continue;
+			//sprintf(outt, "ACHIEVEMENT_CRITERIA_TYPE_MONEY_FROM_QUEST_REWARD,%d\r\n", achievementCriteria->quest_reward_money.goldInCopper);
+			//fwrite(outt, 1, strlen(outt), fout);
+			counter++;
+		}
+		int a=0;
+	}
 
 
 
@@ -3618,7 +3545,7 @@ void PlayerModeDataRicha::richa_exportTo_ristat_()
 					//ItemPrototype const* itemProto = sItemStorage.LookupEntry<ItemPrototype>(pItem->GetEntry());
 					ItemTemplate const* itemProto = sObjectMgr->GetItemTemplate(pItem->GetEntry());
 
-					sprintf(outt, "%d,%d,\"%s\"\r\n", pItem->GetEntry(), pBag->GetBagSize(), itemProto->Name1);
+					sprintf(outt, "%d,%d,\"%s\"\r\n", pItem->GetEntry(), pBag->GetBagSize(), itemProto->Name1.c_str());
 					fwrite(outt, 1, strlen(outt), fout);
 				}
 			}
@@ -3654,7 +3581,7 @@ void PlayerModeDataRicha::richa_exportTo_ristat_()
 				{
 					//ItemPrototype const* itemProto = sItemStorage.LookupEntry<ItemPrototype>(pItem->GetEntry());
 					ItemTemplate const* itemProto = sObjectMgr->GetItemTemplate(pItem->GetEntry());
-					sprintf(outt, "%d,%d,\"%s\"\r\n", pItem->GetEntry(), pItem->GetCount(), itemProto->Name1);
+					sprintf(outt, "%d,%d,\"%s\"\r\n", pItem->GetEntry(), pItem->GetCount(), itemProto->Name1.c_str());
 					fwrite(outt, 1, strlen(outt), fout);
 				}
 				else
@@ -3695,7 +3622,7 @@ void PlayerModeDataRicha::richa_exportTo_ristat_()
 				{
 					//ItemPrototype const* itemProto = sItemStorage.LookupEntry<ItemPrototype>(pItem->GetEntry());
 					ItemTemplate const* itemProto = sObjectMgr->GetItemTemplate(pItem->GetEntry());
-					sprintf(outt, "%d,%d,\"%s\"\r\n", pItem->GetEntry(), pItem->GetCount(), itemProto->Name1);
+					sprintf(outt, "%d,%d,\"%s\"\r\n", pItem->GetEntry(), pItem->GetCount(), itemProto->Name1.c_str());
 					fwrite(outt, 1, strlen(outt), fout);
 				}
 			}
@@ -3751,7 +3678,7 @@ void PlayerModeDataRicha::richa_exportTo_ristat_()
 						{
 							//ItemPrototype const* itemProto = sItemStorage.LookupEntry<ItemPrototype>(pItem->GetEntry());
 							ItemTemplate const* itemProto = sObjectMgr->GetItemTemplate(pItem->GetEntry());
-							sprintf(outt, "%d,%d,\"%s\"\r\n", pItem->GetEntry(), pItem->GetCount(), itemProto->Name1);
+							sprintf(outt, "%d,%d,\"%s\"\r\n", pItem->GetEntry(), pItem->GetCount(), itemProto->Name1.c_str());
 							fwrite(outt, 1, strlen(outt), fout);
 						}
 					}
@@ -3765,7 +3692,7 @@ void PlayerModeDataRicha::richa_exportTo_ristat_()
 				{
 					//ItemPrototype const* itemProto = sItemStorage.LookupEntry<ItemPrototype>(pItem->GetEntry());
 					ItemTemplate const* itemProto = sObjectMgr->GetItemTemplate(pItem->GetEntry());
-					sprintf(outt, "%d,%d,\"%s\"\r\n", pItem->GetEntry(), pItem->GetCount(), itemProto->Name1);
+					sprintf(outt, "%d,%d,\"%s\"\r\n", pItem->GetEntry(), pItem->GetCount(), itemProto->Name1.c_str());
 					fwrite(outt, 1, strlen(outt), fout);
 				}
 			}
@@ -3804,7 +3731,7 @@ void PlayerModeDataRicha::richa_exportTo_ristat_()
 				{
 					//ItemPrototype const* itemProto = sItemStorage.LookupEntry<ItemPrototype>(pItem->GetEntry());
 					ItemTemplate const* itemProto = sObjectMgr->GetItemTemplate(pItem->GetEntry());
-					sprintf(outt, "%d,%d,\"%s\"\r\n", pItem->GetEntry(), pBag->GetBagSize(), itemProto->Name1);
+					sprintf(outt, "%d,%d,\"%s\"\r\n", pItem->GetEntry(), pBag->GetBagSize(), itemProto->Name1.c_str());
 					fwrite(outt, 1, strlen(outt), fout);
 				}
 			}
@@ -3852,7 +3779,7 @@ void PlayerModeDataRicha::richa_exportTo_ristat_()
 				{
 					//ItemPrototype const* itemProto = sItemStorage.LookupEntry<ItemPrototype>(pItem->GetEntry());
 					ItemTemplate const* itemProto = sObjectMgr->GetItemTemplate(pItem->GetEntry());
-					sprintf(outt, "%d,%d,\"%s\"\r\n", pItem->GetEntry(), pItem->GetCount(), itemProto->Name1);
+					sprintf(outt, "%d,%d,\"%s\"\r\n", pItem->GetEntry(), pItem->GetCount(), itemProto->Name1.c_str());
 					fwrite(outt, 1, strlen(outt), fout);
 				}
 			}
@@ -3867,7 +3794,7 @@ void PlayerModeDataRicha::richa_exportTo_ristat_()
 						{
 							//ItemPrototype const* itemProto = sItemStorage.LookupEntry<ItemPrototype>(pItem->GetEntry());
 							ItemTemplate const* itemProto = sObjectMgr->GetItemTemplate(pItem->GetEntry());
-							sprintf(outt, "%d,%d,\"%s\"\r\n", pItem->GetEntry(), pItem->GetCount(), itemProto->Name1);
+							sprintf(outt, "%d,%d,\"%s\"\r\n", pItem->GetEntry(), pItem->GetCount(), itemProto->Name1.c_str());
 							fwrite(outt, 1, strlen(outt), fout);
 						}
 					}
@@ -4901,7 +4828,11 @@ void PlayerModeDataRicha::richard_countItem_pokeball(uint32& itemKeyRin0, uint32
 }
 
 
-
+PlayerModeDataRicha::PlayerModeDataRicha(Player* thisOwner)
+{
+	m_richa_scoreElderCourse = 0;
+	m_thisOwner = thisOwner;
+}
 
 
 ///////////////////////////////////////////////
@@ -5125,10 +5056,260 @@ void PlayerModeDataRicha::Richa_OnCanTakeQuest(Quest const* quest, bool msg) con
 
 
 
-
-
 std::map<time_t, RichardClass::RICHARD_TRY_LOOT_WANT  > RichardClass::g_wantLoot;
+int RichardClass::g_fillLootCounter_Youhaicoin = 0;
+time_t RichardClass::g_timeLastLoot_Youhaicoin = 0;
+std::mutex RichardClass::g_mutex_SavePlayerProtection;
 
+void RichardClass::StaticRichardVariables_Init()
+{
+	char nameFile2[2048];
+	sprintf(nameFile2, "RICHARDS_WOTLK/serverRichaVariables.txt");
+
+	std::ifstream infile(nameFile2);
+
+	if (!infile.is_open() || infile.fail())
+	{
+
+
+		char NPath[1024];
+		GetCurrentDirectoryA(1024, NPath);
+
+		sLog->outBasic("RICHAR WARNING GRAVE YMV304 : Can't find save file  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+		sLog->outBasic("						    : working dir = %s", NPath);
+
+
+		// je prefere bloquer le serveur plutot que charger n'importe quoi ou prendre le risque d'effacer des data
+		for (int i = 0; ; i++)
+		{
+			Sleep(1000);
+			int aaaa = 0;
+		}
+
+		//on RESET toutes les variables importées par ce TXT :
+		g_fillLootCounter_Youhaicoin = 0;
+		g_timeLastLoot_Youhaicoin = 0;
+
+		return;
+	}
+
+
+
+
+	int nbOk = 0;
+	bool error = false;
+	int errorCode = 0;
+
+
+	if (g_fillLootCounter_Youhaicoin != 0)
+	{
+		sLog->outBasic("RICHAR WARNING !!!!!!!!!!!!!!!!!!! - LIST3265 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+	}
+	if (g_timeLastLoot_Youhaicoin != 0)
+	{
+		sLog->outBasic("RICHAR WARNING !!!!!!!!!!!!!!!!!!! - LIST3266 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+	}
+
+
+	//on RESET toutes la variables importées par ce TXT :
+	g_fillLootCounter_Youhaicoin = 0;
+	g_timeLastLoot_Youhaicoin = 0;
+
+
+	std::string line;
+	int lineCount = 0; // ne compte PAS les ligne ignorées par le lecteur (ligne vides, commentaires....)
+	while (std::getline(infile, line))
+	{
+
+
+		if (line == "#FIN_DOCUMENT") // critere d'arret
+		{
+			nbOk++;
+			break;
+		}
+
+		else if (line == "") // on ignore les ligne vide
+		{
+			lineCount--;
+		}
+
+		else if (line.size() >= 2 && line[0] == '/' &&  line[1] == '/') // on ignore les ligne qui commencent par //
+		{
+			lineCount--;
+		}
+
+		else if (lineCount == 0)
+		{
+			if (line != "SERVER_VARIABLES")
+			{
+				error = true; errorCode = 1; break;
+			}
+			else
+			{
+				nbOk++;
+			}
+		}
+
+		else if (lineCount == 1)
+		{
+			if (line != "VERSION_254") // version
+			{
+				error = true; errorCode = 2; break;
+			}
+			else
+			{
+				nbOk++;
+			}
+		}
+
+
+		else if (lineCount == 2)
+		{
+			if (line != "#GENERAL_VAR") 
+			{
+				error = true; errorCode = 3; break;
+			}
+		}
+
+		else if (lineCount == 3)
+		{
+			int nb = atoi(line.c_str());
+			g_fillLootCounter_Youhaicoin = nb;
+		}
+		else if (lineCount == 4)
+		{
+			long long nb = std::stoll(line);
+			g_timeLastLoot_Youhaicoin = nb;
+		}
+
+		else
+		{
+			error = true; errorCode = 12;
+			break;
+		}
+
+
+		lineCount++;
+	}
+
+
+	if (nbOk != 3 || error || errorCode != 0)
+	{
+		if (error)
+		{
+			int aaaaa = 0;
+		}
+
+		char finalErro[4096];
+		sprintf(finalErro, "RICHAR WARNING GRAVE MWX001 cant load save for   errorCode= %d -  JE BLOQUE LE SERVER !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",errorCode);
+
+		sLog->outBasic(finalErro);
+
+		// je prefere bloquer le serveur plutot que charger n'importe quoi ou prendre le risque d'effacer des data
+		for (int i = 0; ; i++)
+		{
+			Sleep(1000);
+			int aaaa = 0;
+		}
+
+
+		//si on arrive dans cette erreur, ca veut dire que	_ri_character_%d.txt
+		//n'a pas été chargé correctment.
+
+
+
+		//on RESET toutes les variables importées par ce TXT :
+		g_fillLootCounter_Youhaicoin = 0;
+		g_timeLastLoot_Youhaicoin = 0;
+
+
+	}
+
+
+	infile.close();
+	return;
+}
+
+void RichardClass::StaticRichardVariables_Save()
+{
+	char outt[4096];
+
+	time_t t = time(0);   // get time now
+	struct tm * now = localtime(&t);
+
+	// un petit check ca fait pas de mal
+	if ( sizeof(time_t) != sizeof(long long) ||  sizeof(time_t) != sizeof(int64_t) )
+	{
+		sLog->outBasic("WARNING IMPORTANT  R56FMP :  data format -  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ");
+		for (int i = 0; ; i++)
+		{
+			Sleep(1000);
+		}		
+	}
+
+
+	char nameFile2[2048];
+	sprintf(nameFile2, "RICHARDS_WOTLK/serverRichaVariables.txt");
+	FILE* fcustom = fopen(nameFile2, "wb"); // w : create an empty file - if file already exist content are discarded , and treated as new empty file
+
+
+	if (!fcustom)
+	{
+
+		sLog->outBasic("WARNING IMPORTANT  4CRT8 :  arrive pas a ouvrir un fichier pour exporter les data - pause de 60 secondes !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ");
+
+		// je prefere bloquer le serveur plutot que charger n'importe quoi ou prendre le risque d'effacer des data
+		for (int i = 0; i < 60; i++)
+		{
+			Sleep(1000);
+			int aaaa = 0;
+		}
+
+		int aaa = 0;
+
+		return;
+	}
+
+
+	sprintf(outt, "// generated on %02d/%02d/%d \r\n", now->tm_mday, now->tm_mon + 1, now->tm_year + 1900);
+	fwrite(outt, 1, strlen(outt), fcustom);
+
+	sprintf(outt, "// but de ce fichier : sauvegarder des donnees en plus (qui ne sont pas sauvegardee par la vraie database) propres aux SERVEUR.\r\n");
+	fwrite(outt, 1, strlen(outt), fcustom);
+
+	sprintf(outt, "SERVER_VARIABLES\r\n"); // juste un code pour savoir si tout est ok
+	fwrite(outt, 1, strlen(outt), fcustom);
+
+	sprintf(outt, "VERSION_254\r\n"); // la version
+	fwrite(outt, 1, strlen(outt), fcustom);
+
+
+	sprintf(outt, "\r\n/////////////////////////////////////////////////////////////////\r\n");
+	fwrite(outt, 1, strlen(outt), fcustom);
+
+	sprintf(outt, "#GENERAL_VAR\r\n");
+	fwrite(outt, 1, strlen(outt), fcustom);
+
+	sprintf(outt, "%d\r\n", g_fillLootCounter_Youhaicoin);
+	fwrite(outt, 1, strlen(outt), fcustom);
+
+	sprintf(outt, "%lld\r\n", (long long)g_timeLastLoot_Youhaicoin);
+	fwrite(outt, 1, strlen(outt), fcustom);
+
+	sprintf(outt, "\r\n/////////////////////////////////////////////////////////////////\r\n");
+	fwrite(outt, 1, strlen(outt), fcustom);
+
+	sprintf(outt, "#FIN_DOCUMENT\r\n");
+	fwrite(outt, 1, strlen(outt), fcustom);
+
+	//sprintf(outt, "3146\r\n"); // juste un code pour savoir si tout est ok
+	//fwrite(outt, 1, strlen(outt), fcustom);
+	fclose(fcustom); fcustom = 0;
+
+
+
+	return;
+}
 
 bool RichardClass::RichaHandleLootRandom(Loot* loot, int lootTypeItemOrGold, Player* _player)
 {
@@ -5265,7 +5446,12 @@ bool RichardClass::RichaHandleLootRandom(Loot* loot, int lootTypeItemOrGold, Pla
 
 	if (g_wantLoot[loot->m_richa.m_richard_timeCreated].list[_player].scoreDice == -1) // si le dés n'est pas jeté
 	{
+
+		// on genere un score entre 2 et 1000
+		// voir la description en commentaire de   'int scoreDice;'  pour plus d'explication sur ce '2'
 		uint32 scorede = urand(2, maxDice);
+
+
 		const char* playerName = _player->GetName().c_str();
 
 		g_wantLoot[loot->m_richa.m_richard_timeCreated].list[_player].scoreDice = scorede;
@@ -5303,6 +5489,9 @@ bool RichardClass::RichaHandleLootRandom(Loot* loot, int lootTypeItemOrGold, Pla
 
 		) // pour rajouter un peu d'aleatoire, le palier est re-tiré au random a chaque fois 
 	{
+
+		// si on arrive ici, ca veut dire que toutes les conditions ne sont PAS encore reunies pour decider si le joueur peut avoir le loot ou pas
+
 		sLog->outBasic("RICHAR: DEBUG_TEXT_LOOT - REFUSE a %s - %d < %d  (nbCandidat=%d) (group de %d)", _player->GetName().c_str(), difference, g___palier_ms, g_wantLoot[loot->m_richa.m_richard_timeCreated].list.size(), nbPLayInGroup);
 		return false;
 	}
@@ -5324,15 +5513,75 @@ bool RichardClass::RichaHandleLootRandom(Loot* loot, int lootTypeItemOrGold, Pla
 			}
 			else
 			{
+
+				//prendre une MAP pour garder un ordre alphabétique
+				//first : player name
+				//second : score de dé 
+				std::map<std::string,int> statdebug;
+
 				int bestScoreDice = -1;
 				for (auto const &ent1 : g_wantLoot[loot->m_richa.m_richard_timeCreated].list)
 				{
+					// pour ce debug stat, on garde que ce qui est au dessus de 2
+					// comme ca on garde pas les cas spéciaux
+					if ( ent1.second.scoreDice >= 2 )
+					{
+						statdebug[ent1.first->GetName()] = ent1.second.scoreDice;
+					}
+
+
 					if (ent1.second.scoreDice >= bestScoreDice)
 					{
 						g_wantLoot[loot->m_richa.m_richard_timeCreated].winner = ent1.first;
 						bestScoreDice = ent1.second.scoreDice;
 					}
 				}
+
+
+				// suite au plaintes de Diane, on genere un log de tous les gagnants des loot.
+				// je ne garde que les cas ou :
+				// - les 2 joueurs se sont présentés
+				// - les 2 joueurs ont un score >=2 ( pour eviter les cas spéciaux )
+				if ( statdebug.size() == 2)
+				{
+					ofstream myfile;
+					myfile.open ("RICHARDS_WOTLK/winLoot.txt" , std::ofstream::app);
+
+					std::time_t t = std::time(0);   // get time now
+					std::tm* now = std::localtime(&t);
+					myfile
+					<<  now->tm_mday << '/'
+					<< (now->tm_mon + 1) << '/'
+					<< (now->tm_year + 1900) << ' ' 
+					<<  now->tm_hour << ':' 
+					<<  now->tm_min << ':' 
+					<<  now->tm_sec
+					<< " | ";
+
+					int ii=0;
+					for(auto i : statdebug )
+					{
+						myfile << i.first;
+						myfile << "(";
+						myfile << i.second;
+						myfile << ")";
+
+						if ( ii == 0 )
+						{
+							myfile << " VS ";
+						}
+
+						ii++;
+					}
+					myfile << " --> ";
+					myfile << g_wantLoot[loot->m_richa.m_richard_timeCreated].winner->GetName();
+					myfile << "\n";
+					myfile.close();
+					int a = 0;
+				}
+
+
+
 
 				//si on est dans un groupe et que un seul joueur etait candidat, c'est pas mal
 				//de le signaler pour s'assurer que tout le groupe est d'accord qu'il y a des gens qui
@@ -5464,6 +5713,109 @@ bool RichardClass::RichaHandleLootRandom(Loot* loot, int lootTypeItemOrGold, Pla
 		}
 
 
+
+		//cas particulier : si dans le loot, il ne reste QUE des objet en freeforAll, alors on autorise n'importe quel joueur a prendre ce loot
+		bool casParticulierObjetDeQuete = false;
+		std::vector<std::string> casParticulierObjetDeQuete_lost;
+		{
+			int nbItem_noQuest = loot->items.size();
+			int nbItem_Quest = loot->quest_items.size();
+
+			int nbItemTotal = nbItem_noQuest + nbItem_Quest;
+
+			int nbItemNonRamasse = 0;
+			int nbItemNonRamasse_freeforAll = 0;
+			int nbItemNonRamasse_freeforAll_allowed = 0; // c'est pas si important ce check, car au pire, le joueur avec une "autorisation speciale" verra un butin vide.
+
+			for(int iItem=0; iItem<nbItem_noQuest; iItem++)
+			{
+				if ( !loot->items[iItem].is_looted )
+				{
+					nbItemNonRamasse++;
+				}
+				if ( !loot->items[iItem].is_looted
+					&& loot->items[iItem].freeforall
+					)
+				{
+					if ( loot->items[iItem].AllowedForPlayer(_player) ) 
+					{
+						nbItemNonRamasse_freeforAll_allowed++;
+					}
+
+					nbItemNonRamasse_freeforAll++;
+					ItemTemplate const* itmTamplate = sObjectMgr->GetItemTemplate(loot->items[iItem].itemid);
+					casParticulierObjetDeQuete_lost.push_back(itmTamplate->Name1);
+				}
+			}
+			for(int iItem=0; iItem<nbItem_Quest; iItem++)
+			{
+				if ( !loot->quest_items[iItem].is_looted )
+				{
+					nbItemNonRamasse++;
+				}
+				if ( !loot->quest_items[iItem].is_looted
+					&& loot->quest_items[iItem].freeforall
+					)
+				{
+					if ( loot->quest_items[iItem].AllowedForPlayer(_player) ) 
+					{
+						nbItemNonRamasse_freeforAll_allowed++;
+					}
+
+					nbItemNonRamasse_freeforAll++;
+					ItemTemplate const* itmTamplate = sObjectMgr->GetItemTemplate(loot->quest_items[iItem].itemid);
+					casParticulierObjetDeQuete_lost.push_back(itmTamplate->Name1);
+				}
+			}
+
+			if ( nbItemNonRamasse > 0 // s'il y a des objets a ramasser
+				&&
+				nbItemNonRamasse_freeforAll == nbItemNonRamasse // si tous les objets restants a ramasser ne sont que des objets en butin libre 
+				&&
+				nbItemNonRamasse_freeforAll_allowed > 0 // dans les objets restants, il y a au moins 1 objet que le joueur est autoirisé  a ramasser
+				&&
+				loot->gold == 0 // s'il n'y a plus d'or sur le cadavre
+				&&
+				lootOrigin == 1 // loot de type cadavre
+				)
+			{
+				casParticulierObjetDeQuete = true;
+			}
+
+			int a=0;
+		}
+
+
+		if ( casParticulierObjetDeQuete )
+		{
+			if ( _player != g_wantLoot[loot->m_richa.m_richard_timeCreated].winner )
+			{
+				char message[2048];
+				if ( casParticulierObjetDeQuete_lost.size() == 1 )
+				{
+					sprintf_s(message, "autorisation speciale pour '%s'.", casParticulierObjetDeQuete_lost[0].c_str() );
+				}
+				else if ( casParticulierObjetDeQuete_lost.size() == 0 )
+				{
+					sprintf_s(message, "autorisation speciale pour ???ERROR???" );
+				}
+				else if ( casParticulierObjetDeQuete_lost.size() == 2 )
+				{
+					sprintf_s(message, "autorisation speciale pour '%s' ET '%s'", casParticulierObjetDeQuete_lost[0].c_str(), casParticulierObjetDeQuete_lost[1].c_str() );
+				}
+				else
+				{
+					sprintf_s(message, "autorisation speciale pour %d items" , casParticulierObjetDeQuete_lost.size() );
+				}
+
+				_player->Say(message, LANG_UNIVERSAL);
+			}
+
+			return true;
+		}
+
+
+
 		if (_player == g_wantLoot[loot->m_richa.m_richard_timeCreated].winner)
 		{
 			//sLog->outBasic("RICHAR: DEBUG_TEXT_LOOT - le winner %s prend son loot "  , g_wantLoot[loot->m_richa.m_richard_timeCreated].winner->GetName()   );
@@ -5496,32 +5848,7 @@ void RichardClass::OnFillLoot(uint32 lootId, LootStore const& store, Player* loo
 	int nbItemTotalInLoot = this___->quest_items.size() + this___->items.size();
 
 	
-	if ( this___->m_richa.m_lootItems.size() == 0 && // loot deja rempli
-		 this___->m_richa.m_lootItems.size() != nbItemTotalInLoot ) // ancien nombre d'objet ne correspondant pas au nouveau nombre d'objet
-	{
-		int a=0;
-		// cela peut arriver, comme dit dans mon exemple du coffre
-	}
 
-	// il vaut mieux clear, et le re-remplir a chaque fois -  si par exemple on ouvre un coffre, on respawn le coffre, et on reloot le coffre,
-	//alors je crois que ca sera le meme  Loot*  mais avec des nouveau objets
-	this___->m_richa.m_lootItems.clear();
-  
-	//if ( this___->m_richa.m_lootItems.size() == 0 )
-	{
-		//si c'est la premiere fois, on init la liste
-
-		for (int i = 0; i < this___->items.size(); i++)
-		{
-			this___->m_richa.m_lootItems.push_back(this___->items[i]);
-		}
-
-		for(int i=0; i< this___->quest_items.size(); i++)
-		{
-			this___->m_richa.m_lootItems.push_back(  this___->quest_items[i]   );
-		}
-
-	}
 
 	
 
@@ -5533,7 +5860,7 @@ void RichardClass::OnFillLoot(uint32 lootId, LootStore const& store, Player* loo
 
 	// id dans la base de donnée
 	const uint32 coinItemID1 = 70010; // YouhaiCoin Paragon
-	const uint32 coinItemID2 = 70007; // YouhaiCoin Cadeau
+	//const uint32 coinItemID2 = 70007; // YouhaiCoin Cadeau <-- je pense les retirer dans WOTLK
 
 
 
@@ -5593,8 +5920,9 @@ void RichardClass::OnFillLoot(uint32 lootId, LootStore const& store, Player* loo
 
 		//il y a 2 mode de gameplay possible : 
 		//
-		// mode_itemCanLoot=false ( mode plus mechant )
+		// mode_itemCanLoot=false ( mode plus mechant ) 
 		// si l'item a 10% de chance de tomber, alors on est sur que les 9 premier kill ne looteront pas, et le 10ieme donnera l'item
+		// ce mode n'existe PAS dans WOLKAINY !
 		//
 		// mode_itemCanLoot=true  ( mode plus gentil )
 		// si l'item a 10% de chance de tomber, alors les 9 premier kill on 10% de chance de looter l'item. 
@@ -5649,36 +5977,7 @@ void RichardClass::OnFillLoot(uint32 lootId, LootStore const& store, Player* loo
 		}
 
 
-		//deja il suffit qu'un joueur soit sur un item , pour qu'on le retire du loot du mob, s'il etait dans la loot liste. ( si on est en mode mechant )
-		for (auto& iItemNeed : listItemThatPlayersNeed)
-		{
 
-			//this___->containerId
-
-
-			for (int i = 0; i < this___->m_richa.m_lootItems.size(); i++)
-			{
-				if (
-				//this___->m_richa.m_lootItems[i] &&
-				this___->m_richa.m_lootItems[i].itemid == iItemNeed.first)
-				{
-					iItemNeed.second.itemDropOnThisLoot = true;
-
-					if (!mode_itemCanLoot) // si mode mechant : on retire l'item
-					{
-						LootItem ii = this___->m_richa.m_lootItems[i];
-						this___->m_richa.m_lootItems.erase(this___->m_richa.m_lootItems.begin() + i);
-						//delete ii;
-
-						sLog->outBasic("RICHAR - ITEM QUEST - l objet etait loote mais on le retire.");
-					}
-					else
-					{
-						int a = 0;
-					}
-				}
-			}
-		}
 
 		// 5000 c'etait trop, on pouvait attendre jusqu'a 1 secondes de pause. (en DEBUG)
 		// 1000 quand on sait on voit la pause, mais ca me semble assez subtil
@@ -6053,10 +6352,22 @@ void RichardClass::OnFillLoot(uint32 lootId, LootStore const& store, Player* loo
 	{
 		int aaa = 0;
 	}
+	else if (strcmp(store.GetName(), "spell_loot_template") == 0)
+	{
+		int aaa = 0; // arrive ici quand on desanchante un item
+	}
+
+	else if (strcmp(store.GetName(), "milling_loot_template") == 0)
+	{
+		// je crois qu'on arrive ici si on fait du:
+		// Milling = Mouture
+		// qui je crois permet de fabriquer des encres de caligraphie
+		int aaa = 0; 
+	}
 	else
 	{
 		int aa = 0;
-		sLog->outBasic("RICHAR: ERRRROR !!!!!!!!!!!!!!!!   unkonwn type loot  = '%s'", store.GetName());
+		sLog->outBasic("RICHAR: WARNING !!!!!!!!!!!!!!!!   unkonwn type loot  = '%s'", store.GetName());
 
 	}
 
@@ -6119,7 +6430,6 @@ void RichardClass::OnFillLoot(uint32 lootId, LootStore const& store, Player* loo
 		}
 
 		richard01_test = 1;
-
 	}
 	else if (lootOrigin == 2) // game object  (genre : coffre)
 	{
@@ -6173,7 +6483,7 @@ void RichardClass::OnFillLoot(uint32 lootId, LootStore const& store, Player* loo
 					// ajout d'une youhaincoin de type cadeau dans tous les coffres
 					// note : si un coffre ne donner pas de Youhaicoin, ca veut dire qu'il faut ajouter son nom a la liste
 					//AddItem(coinItemID2, 1, 0, 0); <-- version CMANGOS
-					this___->m_richa.AddItem_ri(coinItemID2);
+					//this___->m_richa.AddItem_ri(coinItemID2); <-- version WOTLK, mais en fait je pense retirer les YC cadeau de tout WOTLK - donc je commente cette ligne
 
 
 					int playerlevel = lootOwner->getLevel();
@@ -6543,6 +6853,11 @@ void RichardClass::OnFillLoot(uint32 lootId, LootStore const& store, Player* loo
 	else if (richard01_test == 1) // cadavre
 	{
 
+		/*
+
+		CECI EST LA VERSION CMANGOS - de loot de youhaicoin
+		je teste un nouveau system avec WOTLK
+
 		//jaune, c'est tout le temps entre   lvlPlayer-2  et  lvlPlayer+2
 		//vert ca depend : pour un player 10, le vert va etre entre 5 et 7	pour un player lvl 50 le vert va etre entre 40 et 47... donc je vais considere que le vert sera entre  lvl-7 et lvl-3
 		//
@@ -6738,6 +7053,102 @@ void RichardClass::OnFillLoot(uint32 lootId, LootStore const& store, Player* loo
 			//sprintf(messageOut, "TEST");
 			//creatureLooting->MonsterSay(messageOut, LANG_UNIVERSAL);
 		}
+
+
+		*/
+
+
+
+		// Gestion du loot youhaicoin 2.0
+		// ceci est une nouvelle version, pour WOTLK.
+		// je simplifie: on loot simplement une youhaicoin tous les X mobs  ( avec une protection de timer pour eviter de looter mass Youhaicoin sur des pack de mob simples )
+		{
+			const int lootTousLesXmob = 5;
+			const double minimumDeSecondesEntreChaqueLoot = 4.0 *60.0;
+
+
+			if ( g_timeLastLoot_Youhaicoin == 0 )
+			{
+				time(&g_timeLastLoot_Youhaicoin); // s'il a jamais été init, c'est le moment.  ceci doit arriver une seule fois dans toute l'histoire du serveur
+
+				char messageOut[2048];
+				sprintf(messageOut, "INFO RICHAR : INIT TIMER !!!!");
+				lootOwner->Say(messageOut, LANG_UNIVERSAL);
+			}
+
+			time_t currentTime = 0;
+			time(&currentTime);
+			double secondesSinceLastLoot = difftime(currentTime , g_timeLastLoot_Youhaicoin); // pour un difftime, bien mettre le temps le plus eleve en premier argument.  sinon ca retourne un nombre négatif 
+
+			if (
+				// #LISTE_ACCOUNT_HERE   -  ce hashtag repere tous les endroit que je dois updater quand je rajoute un nouveau compte - ou perso important
+					lootOwner->GetName() == "PBody"
+				|| lootOwner->GetName() == "Atlas"
+				)
+			{
+				g_fillLootCounter_Youhaicoin ++;
+
+				if ( g_fillLootCounter_Youhaicoin >= lootTousLesXmob ) // si on a notre objectif de nombre de kill 
+				{
+
+					if ( secondesSinceLastLoot >= minimumDeSecondesEntreChaqueLoot ) // s'il s'est ecoulé suffisement de temps depuis le dernier loot
+					{
+						// ASUP DEBUG
+						{
+							char messageOut[2048];
+							sprintf(messageOut, "count=%d - LOOT!",g_fillLootCounter_Youhaicoin);
+							lootOwner->Say(messageOut, LANG_UNIVERSAL);
+						}
+					
+						//AddItem(coinItemID1, 1, 0, 0); <-- version cmangos
+						this___->m_richa.AddItem_ri(coinItemID1);
+
+						time(&g_timeLastLoot_Youhaicoin);
+					
+						//char messageOut[2048];
+						//sprintf(messageOut, "+1 youhaicoin paragon!");
+						//lootOwner->Say(messageOut, LANG_UNIVERSAL);
+
+						// dans cmangos ca marche pas bien, mais dans WOTLK, ca a l'air de bien marcher : le cadavre peut parler avec une bulle de BD
+						char messageOut[2048];
+						sprintf(messageOut, "Youhaicoin !");
+						creatureLooting->MonsterSay(messageOut, LANG_UNIVERSAL, nullptr);
+
+						g_fillLootCounter_Youhaicoin = 0; // reset the counter
+					}
+					else
+					{
+						// ASUP DEBUG
+						{
+							char messageOut[2048];
+							sprintf(messageOut, "count=%d - pas loot (car timing %f)",g_fillLootCounter_Youhaicoin , (float)secondesSinceLastLoot/(float)60.0f);
+							lootOwner->Say(messageOut, LANG_UNIVERSAL);
+						}
+					}
+
+				}
+				else
+				{
+					// ASUP DEBUG
+					{
+						char messageOut[2048];
+						sprintf(messageOut, "count=%d - pas loot (car count)",g_fillLootCounter_Youhaicoin);
+						lootOwner->Say(messageOut, LANG_UNIVERSAL);
+					}
+				}
+			}
+			else
+			{
+				// ASUP DEBUG
+				{
+					char messageOut[2048];
+					sprintf(messageOut, "count=%d - pas loot (car PERSO) (timing= %f)",g_fillLootCounter_Youhaicoin , secondesSinceLastLoot/60.0);
+					lootOwner->Say(messageOut, LANG_UNIVERSAL);
+				}
+			}
+
+		} // FIN : Gestion du loot youhaicoin 2.0
+
 
 
 
@@ -7008,8 +7419,8 @@ Creature* LootModeDataRicha::GetCreature()
 //
 bool RichardClass::Richard_lootCommunPourObjDeQuest(unsigned int itemID)
 {
-	//SELECT ChanceOrQuestChance FROM creature_loot_template WHERE item = '5055'
-	//QueryResult* result = CharacterDatabase.PQuery("SELECT ChanceOrQuestChance FROM creature_loot_template WHERE item = '%u'", itemID);
+	//SELECT Chance FROM creature_loot_template WHERE item = '5055'
+	//QueryResult* result = CharacterDatabase.PQuery("SELECT Chance FROM creature_loot_template WHERE item = '%u'", itemID);
 
 
 	//int aaaaa=0;

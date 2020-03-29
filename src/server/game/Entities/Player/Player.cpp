@@ -595,7 +595,7 @@ void KillRewarder::_RewardPlayer(Player* player, bool isDungeon)
         //
         //RICHARD : nouvelle regle XP : tout le monde a la meme xp :
         rate = _group ? _groupRate * 1.0 / (float)_group->GetMembersCount() : 1.0f;
-        player->Say("mon rate = " + std::to_string(rate), LANG_UNIVERSAL);
+        //player->Say("mon rate = " + std::to_string(rate), LANG_UNIVERSAL);
         ////////////////////////////////////////////////////////////////////////////////////
 
 

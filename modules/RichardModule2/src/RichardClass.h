@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mutex>
 
 class Creature;
 class Quest;
@@ -52,7 +53,6 @@ public:
 
 	Loot* m_thisOwner;
 	time_t m_richard_timeCreated;
-	std::vector<LootItem> m_lootItems;
 	Object* m_lootCreator;
 };
 
@@ -61,11 +61,7 @@ public:
 class PlayerModeDataRicha
 {
 public:
-	PlayerModeDataRicha(Player* thisOwner)
-	{
-		m_richa_scoreElderCourse = 0;
-		m_thisOwner = thisOwner;
-	}
+	PlayerModeDataRicha(Player* thisOwner);
 
 	~PlayerModeDataRicha()
 	{
@@ -75,7 +71,7 @@ public:
 	void Richa_OnCanTakeQuest(Quest const* quest, bool msg) const;
 
 	void richard_importVariables_START(uint64 guid__);
-	void richard_importVariables_END(uint64 guid__);
+	void richard_importVariables_END(uint64 guid__); // NON Utilisé dans CMANGOS et WOTLK
 
 
 	// richa :  essayer plutot d'utiliser   GetItemCount  si possible
@@ -85,9 +81,6 @@ public:
 
 
 
-
-	///////////////////////////////////////////////////////////////////////////////////
-	// richar
 public:
 	void Richard_InformDiscoveredNewArea(int areaFlag);
 	struct MAP_SECONDA
@@ -237,10 +230,6 @@ public:
 	//plus on est proche de [0], plus il est "prioritaire", c'est a dire moins suspetible d'etre automatiquement passé en   active=false
 	std::vector<RICHA_ITEM_LOOT_QUEST> m_richa_itemLootQuests;
 
-	///////////////////////////////////////////////////////////////////////////////////
-
-
-
 
 
 
@@ -255,28 +244,35 @@ class RichardClass
 {
 public:
 
+	// certaines variables que je veux concerver lorsque le serveur coupe.
+	// elles seront sauvegardées dans serverRichaVariables.txt
+	static void StaticRichardVariables_Init();
+	static void StaticRichardVariables_Save();
+
 	static void OnFillLoot(uint32 lootId, LootStore const& store, Player* lootOwner, bool personal, bool noEmptyError, uint16 lootMode , Loot* this___);
 
 	static bool Richard_lootCommunPourObjDeQuest(unsigned int itemID);
 
-	bool ExecuteCommand_richard_B(const char* text, Player* playerrrr);
+	
 
 	static bool  ExtractUInt32Base(char** args, uint32& val, uint32 base) ;
 	static bool  ExtractUInt32(char** args, uint32& val)  { return ExtractUInt32Base(args, val, 10); }
 
 	// sert a avoir des information sur un Item a partir de son ID
 	// return TRUE if taken in charge
-	bool ExecuteCommand_richard_2(int numberID, Player* player);
+	static bool ExecuteCommand_richard_2(int numberID, Player* player);
 
-	bool ExecuteCommand_richard_C(const char* text, Player* player);
-	bool ExecuteCommand_richard_D(const char* text, Player* playerrr);
+	static bool ExecuteCommand_richard_A(const char* text, Player* playerrrr);
+	static bool ExecuteCommand_richard_B(const char* text, Player* playerrrr);
+	static bool ExecuteCommand_richard_C(const char* text, Player* player);
+	static bool ExecuteCommand_richard_D(const char* text, Player* playerrr);
 
-	bool ExecuteCommand_richard_A(const char* text, Player* playerrrr);
+	
 
 	static unsigned long Richa_NiceLinkToIitemID(const char* str);
 
 	//convert example :
-	// 3965 -->  "|cff9d9d9d|Hitem:3965:0:0:0|h[Gants en cuir épais]|h|r"
+	// 6507 -->  " |cffffffff|Hitem:6507:0:0:0:0:0:0:0:3|h[Brassards d'infanterie]|h|r"
 	static std::string Richa_itemIdToNiceLink(unsigned long itemID);
 
 
@@ -346,10 +342,11 @@ public:
 
 
 
+	static int g_fillLootCounter_Youhaicoin;
+	static time_t g_timeLastLoot_Youhaicoin;
+	//static time_t g_timeFirstLoot_Youhaicoin;
 
-
-
-
+	static std::mutex g_mutex_SavePlayerProtection;
 
 };
 

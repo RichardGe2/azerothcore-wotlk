@@ -10,7 +10,41 @@ class MyCommand : public CommandScript
 {
 public:
 
-	MyCommand() : CommandScript("MyCommand") { }
+	MyCommand() : CommandScript("MyCommand")
+	{
+		//verifier qu'on lance pas le serveur plusieurs fois
+		std::ifstream infile("RICHARDS_WOTLK/securityDoubleBoot.txt");
+		if (  infile.good() )
+		{
+			infile.close();
+			// error
+			for(int i=0; ;i++)
+			{
+				sLog->outString("ERROR Serveur lance plusieurs fois ??? (ou mal ferme la derniere fois) (RICHARDS_WOTLK/securityDoubleBoot.txt) \n");
+				Sleep(1000);
+			}
+		}
+		else
+		{
+			// create it
+			 std::ifstream infile2("RICHARDS_WOTLK/securityDoubleBoot.txt", std::ios_base::app);
+			 infile2.close();
+		}
+	}
+
+	~MyCommand() 
+	{
+		BOOL ret = DeleteFileA("RICHARDS_WOTLK/securityDoubleBoot.txt");
+		if ( ret )
+		{
+			int a=0; // success
+		}
+		else
+		{
+			int a=0;
+		}
+		int a=0;
+	}
 
 
 	std::vector<ChatCommand> GetCommands() const override
@@ -304,7 +338,7 @@ public:
 
 					// id dans la base de donnée
 					const uint32 coinItemID1 = 70010; // YouhaiCoin Paragon
-					const uint32 coinItemID2 = 70007; // YouhaiCoin Cadeau
+					// const uint32 coinItemID2 = 70007; // YouhaiCoin Cadeau <-- retiré de WOTLK
 
 					// lister ici la liste des objets interdits a etre fait en quete
 					if (!modeDelete)
@@ -315,10 +349,10 @@ public:
 							|| itemID == 21305 // <-- les 4 items de noel à collectionner
 							|| itemID == 21308
 
-							|| itemID >= 100000 //  les youhaimon epiques ou non epiques
+							// || itemID >= 100000 //  les youhaimon epiques ou non epiques   <---  pas de youhaimon sur WOTLK
 
 							|| itemID == coinItemID1
-							|| itemID == coinItemID2
+							//|| itemID == coinItemID2
 							)
 						{
 							char messageee[2048];
@@ -602,8 +636,8 @@ public:
 		int nbModifie2 = 0;
 		int nbLoot = 0;
 
-		/*
-		for (auto &ent : WorldSession::g_wantLoot)
+		
+		for (auto &ent : RichardClass::g_wantLoot)
 		{
 
 
@@ -651,15 +685,16 @@ public:
 			nbLoot++; // nb total de loot
 
 		}
-		*/
+		
 
 
-		char messageee[2048];
-		sprintf(messageee, "   (TODO !!!!!!!)	 RICHAR: %s a clean ses %d/%d loots.", playerEnterMessage->GetName(), nbModifie1 + nbModifie2, nbLoot);
+		char messageee1[2048];
+		sprintf(messageee1, "RICHAR: %s a clean ses %d/%d loots.", playerEnterMessage->GetName(), nbModifie1 + nbModifie2, nbLoot);
+		sLog->outBasic(messageee1);
 
-		//sLog->outBasic(messageee);
-		ChatHandler(playerEnterMessage->GetSession()).SendSysMessage(messageee);
-
+		char messageee2[2048];
+		sprintf(messageee2, "clean %d/%d loots.", nbModifie1 + nbModifie2, nbLoot);
+		ChatHandler(playerEnterMessage->GetSession()).SendSysMessage(messageee2);
 		return true;
 	}
 
@@ -738,7 +773,7 @@ public:
 				//sLog->outBasic(messageee);
 				ChatHandler(player->GetSession()).SendSysMessage(messageee);
 
-				sprintf(messageee, "Name = %s", playerTarget->GetName());
+				sprintf(messageee, "Name = %s", playerTarget->GetName().c_str());
 				//sLog->outBasic(messageee);
 				ChatHandler(player->GetSession()).SendSysMessage(messageee);
 
@@ -785,7 +820,7 @@ public:
 			//sLog->outBasic(messageee);
 			ChatHandler(player->GetSession()).SendSysMessage(messageee);
 
-			sprintf(messageee, "Name = %s", target->GetName());
+			sprintf(messageee, "Name = %s", target->GetName().c_str());
 			//sLog->outBasic(messageee);
 			ChatHandler(player->GetSession()).SendSysMessage(messageee);
 
@@ -803,12 +838,41 @@ public:
 
 			if (cast_creature)
 			{
+				
 
 				distanceFromObject = player->GetDistance(cast_creature);
 
 
 				//CreatureInfo const* cinfo = cast_creature->GetCreatureInfo();
 				CreatureTemplate const* cinfo = cast_creature->GetCreatureTemplate();
+
+				if ( cinfo->type == CREATURE_TYPE_BEAST )
+				{
+					bool adopatable_exotique = cinfo->IsTameable(true);
+					bool adopatable_normal   = cinfo->IsTameable(false);
+
+					if ( !adopatable_exotique && !adopatable_normal )
+					{
+						sprintf(messageee, "Cette bete n'est PAS adoptable.");
+						ChatHandler(player->GetSession()).SendSysMessage(messageee);
+					}
+					else if ( adopatable_exotique && adopatable_normal )
+					{
+						sprintf(messageee, "Cette bete est adoptable.");
+						ChatHandler(player->GetSession()).SendSysMessage(messageee);
+					}
+					else if ( adopatable_exotique && !adopatable_normal )
+					{
+						sprintf(messageee, "Cette bete est adoptable - et est EXOTIQUE.");
+						ChatHandler(player->GetSession()).SendSysMessage(messageee);
+					}
+					else
+					{
+						// une bete ne peux pas etre non adoptable avec la spec exotique, et adoptable dans la spec, ca a pas de sens.
+						sprintf(messageee, "BUG 9651 EN PARLER A RICHARD !!!!!!!!!!!!!!!!");
+						ChatHandler(player->GetSession()).SendSysMessage(messageee);
+					}
+				}
 
 
 				sprintf(messageee, "distance = %f", distanceFromObject);
@@ -858,7 +922,7 @@ public:
 						// #LISTE_ACCOUNT_HERE   -  ce hashtag repere tous les endroit que je dois updater quand je rajoute un nouveau compte - ou perso important
 						//
 						//list de tous les perso principaux de tout le monde
-						//mainPlayerGUID.push_back(XXX);  mainPlayerNames.push_back("P-Body");
+						//mainPlayerGUID.push_back(XXX);  mainPlayerNames.push_back("PBody");
 						//mainPlayerGUID.push_back(YYY);  mainPlayerNames.push_back("Atlas");  <----   TODO POUR WOTLK : rentrer les bon GUID des personnages
 						sprintf(messageee, "WARNING : LISTE DE PERSO VIDE");
 						ChatHandler(player->GetSession()).SendSysMessage(messageee);

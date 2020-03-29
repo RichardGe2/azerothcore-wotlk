@@ -15,7 +15,7 @@ public:
 
     void OnStartup() override 
 	{ 
-	
+		RichardClass::StaticRichardVariables_Init();
 
 		////////////////////////////////////////////////////////
 		//richard - init message

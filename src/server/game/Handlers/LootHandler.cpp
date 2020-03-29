@@ -185,7 +185,7 @@ void WorldSession::HandleLootMoneyOpcode(WorldPacket & /*recvData*/)
         {
             return;
         }
-
+		shareMoney = false; // RICHA : forcer desactivation partage de money
 
 
 
@@ -388,7 +388,64 @@ void WorldSession::DoLootRelease(uint64 lguid)
         }
         else if (pItem->loot.isLooted() || !(proto->Flags & ITEM_PROTO_FLAG_OPENABLE))
         {
+
+
+			//RICHARD - ne pas delete un tas d'objet quand en en desanchante 1
+			//sauvegarde des states AVANT delete
+			// NOTE: j'ai essayé en faisant un truc du genre :     player->DestroyItemCount(pItem, 1, true);
+			//       mais ca fait un bug etrange : si je desanchante une stack d'item,  le premier desanchantement va bien se passer, mais les autres vont looter 0 poussiere
+			uint32 entryItem = pItem->GetEntry();
+			uint32 countBeforeDelete = pItem->GetCount();
+			uint8 bagSlot_beforeDelete = pItem->GetBagSlot();
+			uint8 Slot_beforeDelete = pItem->GetSlot();
+			int a=0;
+			//FIN MODIF
+			///////////////////////////////////////////////////////////
+
+
+
+
             player->DestroyItem(pItem->GetBagSlot(), pItem->GetSlot(), true);
+
+
+
+			//RICHARD - ne pas delete un tas d'objet quand en en desanchante 2
+			//on donne ce qui a été delete APRES le delete
+			if ( countBeforeDelete > 1 ) // si on avait + d'un objet stacké
+			{
+				Item* item_AfterDelete = player->GetItemByPos(bagSlot_beforeDelete, Slot_beforeDelete);
+				if ( item_AfterDelete != nullptr )
+				{
+					sLog->outBasic("RICHAR: error 536903");
+					*((unsigned int*)0) = 0xDEAD;//on provoque un CRASH - car c'est pas normal
+				}
+				if ( item_AfterDelete == nullptr
+					//||
+					//item_AfterDelete->GetCount() < countBeforeDelete-1
+					)
+				{
+					Item* newItem = Item::CreateItem(entryItem,  countBeforeDelete-1 );
+					ItemPosCountVec sDest;
+					InventoryResult msg = player->CanStoreItem(bagSlot_beforeDelete, Slot_beforeDelete, sDest, newItem, false);
+					if (msg == EQUIP_ERR_OK)
+					{
+						player->StoreItem(sDest, newItem, true);
+					}
+					else
+					{
+						sLog->outBasic("RICHAR: error 536904");
+						*((unsigned int*)0) = 0xDEAD;//on provoque un CRASH - car c'est pas normal
+					}
+
+				}
+	
+			}
+			//FIN MODIF
+			///////////////////////////////////////////////////////////
+
+
+
+
             return;
         }
     }
