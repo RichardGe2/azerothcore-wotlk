@@ -274,6 +274,12 @@ class AchievementMgr
         void RemoveTimedAchievement(AchievementCriteriaTimedTypes type, uint32 entry);   // used for quest and scripted timed achievements
 
         void RemoveCriteriaProgress(AchievementCriteriaEntry const* entry);
+
+
+		// criteriaEntryID  correspond a AchievementCriteriaEntry::ID
+		void richa_GetInfo(uint32 criteriaEntryID, uint32& counterOut, bool& found) const;
+
+
     private:
         enum ProgressType { PROGRESS_SET, PROGRESS_ACCUMULATE, PROGRESS_HIGHEST, PROGRESS_RESET };
         void SendAchievementEarned(AchievementEntry const* achievement) const;

@@ -14,23 +14,19 @@
 #include "SpellInfo.h"
 #include <map>
 
-struct SkillDiscoveryEntry
-{
-    uint32  spellId;                                        // discavered spell
-    uint32  reqSkillValue;                                  // skill level limitation
-    float   chance;                                         // chance
 
-    SkillDiscoveryEntry()
-        : spellId(0), reqSkillValue(0), chance(0) {}
-
-    SkillDiscoveryEntry(uint32 _spellId, uint32 req_skill_val, float _chance)
-        : spellId(_spellId), reqSkillValue(req_skill_val), chance(_chance) {}
-};
 
 typedef std::list<SkillDiscoveryEntry> SkillDiscoveryList;
 typedef std::unordered_map<int32, SkillDiscoveryList> SkillDiscoveryMap;
 
 static SkillDiscoveryMap SkillDiscoveryStore;
+
+
+const std::unordered_map<int32, std::list<SkillDiscoveryEntry>>& GetSkillDiscoveryStore()
+{
+	return SkillDiscoveryStore;
+}
+
 
 void LoadSkillDiscoveryTable()
 {

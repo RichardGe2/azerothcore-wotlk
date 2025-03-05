@@ -2581,6 +2581,17 @@ bool InstanceMap::CanEnter(Player* player, bool loginCheck)
         for (PlayerList::const_iterator i = playerList.begin(); i != playerList.end(); ++i)
             if (Player* iPlayer = i->GetSource())
             {
+
+
+
+
+				// #RICHA_PERMA_INSTANCE
+				// RICHARD - ne jamais empecher un joueur de rentrer dans une instance deja occupée
+				continue;
+
+
+
+
                 if (iPlayer == player) // login case, player already added to map
                     continue;
                 if (iPlayer->IsGameMaster()) // bypass GMs

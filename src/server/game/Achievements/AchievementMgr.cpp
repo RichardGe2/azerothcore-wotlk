@@ -753,6 +753,11 @@ static const uint32 achievIdForDungeon[][4] =
 void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, uint32 miscValue1 /*= 0*/, uint32 miscValue2 /*= 0*/, Unit* unit /*= NULL*/)
 {
 
+	
+	RichardClass::UPDATE_ACHIEVEMENT_RICHA databefore; RichardClass::UpdateAchievement_Before(m_player,databefore);
+
+
+
     // disable for gamemasters with GM-mode enabled
     if (m_player->IsGameMaster())
         return;
@@ -1721,6 +1726,16 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
                 if (IsCompletedAchievement(*itr))
                     CompletedAchievement(*itr);
     }
+
+
+
+
+
+	RichardClass::UpdateAchievement_After(m_player,databefore);
+
+
+
+
 }
 
 bool AchievementMgr::IsCompletedCriteria(AchievementCriteriaEntry const* achievementCriteria, AchievementEntry const* achievement)
@@ -2917,3 +2932,30 @@ void AchievementGlobalMgr::LoadRewardLocales()
     sLog->outString(">> Loaded %lu Achievement Reward Locale strings in %u ms", (unsigned long)m_achievementRewardLocales.size(), GetMSTimeDiffToNow(oldMSTime));
     sLog->outString();
 }
+
+
+
+
+void AchievementMgr::richa_GetInfo(uint32 criteriaEntryID, uint32& counterOut, bool& found) const
+{
+	if ( m_criteriaProgress.find(criteriaEntryID) != m_criteriaProgress.end() )
+	{
+		const CriteriaProgress& progress = m_criteriaProgress.at(criteriaEntryID);
+		counterOut = progress.counter;
+		found = true;
+	}
+	else
+	{
+		counterOut = 0;
+		found = false;
+	}
+
+	return;
+}
+
+
+
+
+
+
+

@@ -629,6 +629,24 @@ public:
 
         handler->PSendSysMessage(LANG_GOINFO_NAME, name.c_str());
 
+
+
+
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // RICHARD  RAJOUTER DEBUG INFO  GOBJECT INFO
+        if (gameObject)
+        {
+            handler->PSendSysMessage("richar - guid_low: %u", gameObject->GetGUIDLow());
+            handler->PSendSysMessage("richar - resp_delay: %u", gameObject->GetRespawnDelay());
+        }
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
         return true;
     }
 

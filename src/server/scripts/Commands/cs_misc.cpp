@@ -64,6 +64,7 @@ public:
             { "aura",               SEC_GAMEMASTER,         false, &HandleAuraCommand,                  "" },
             { "unaura",             SEC_GAMEMASTER,         false, &HandleUnAuraCommand,                "" },
             { "appear",             SEC_MODERATOR,          false, &HandleAppearCommand,                "" },
+            { "rigo",               SEC_MODERATOR,          false, &HandleAppearCommand,                "" }, // RICHARD - commande rigo
             { "summon",             SEC_GAMEMASTER,         false, &HandleSummonCommand,                "" },
             { "groupsummon",        SEC_GAMEMASTER,         false, &HandleGroupSummonCommand,           "" },
             { "commands",           SEC_PLAYER,             true,  &HandleCommandsCommand,              "" },

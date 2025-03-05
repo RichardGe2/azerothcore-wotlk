@@ -19594,18 +19594,38 @@ bool Player::CheckInstanceLoginValid()
     if (!GetMap()->IsDungeon() || IsGameMaster())
         return true;
 
+
+
+
     if (GetMap()->IsRaid())
     {
+
+
+		//  #RICHA_PERMA_INSTANCE
+		//  ne pas refuser un joueur sans groupe
+
         // cannot be in raid instance without a group
-        if (!GetGroup())
-            return false;
+        //  if (!GetGroup())
+       //     return false;
     }
     else
     {
+
+		//  #RICHA_PERMA_INSTANCE
+		//  ne pas refuser un joueur sans groupe
+
+
         // cannot be in normal instance without a group and more players than 1 in instance
-        if (!GetGroup() && GetMap()->GetPlayersCountExceptGMs() > 1)
-            return false;
+       // if (!GetGroup() && GetMap()->GetPlayersCountExceptGMs() > 1)
+       //     return false;
+
+
+
+
     }
+
+
+
 
     // pussywizard: check CanEnter for GetMap(), because in CanPlayerEnter it is called for a map decided before loading screen (can change)
     if (!GetMap()->CanEnter(this, true))

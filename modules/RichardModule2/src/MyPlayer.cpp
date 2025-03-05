@@ -12,6 +12,7 @@
 #include "Group.h"
 #include "GroupReference.h"
 #include "Reference.h"
+#include "SkillDiscovery.h"
 
 class MyPlayer : public PlayerScript
 {
@@ -37,6 +38,119 @@ void OnLootItem(Player* player, Item* item, uint32 count, uint64 lootguid) overr
 	return;
 }
 
+void OnSpellCast(Player* player, Spell* spell, bool skipCheck) override
+{
+	// pas implémenté encore dans Azecore ?
+	int a = 0;
+	return;
+}
+
+void OnLearnSpell(Player* player, uint32 spellID) override
+{
+	const uint32 discoverSpellID = 61288;
+
+
+	// on init la liste si c'est pas fait
+	if ( RichardClass::m_spellsToLearnWith61288.size() == 0 )
+	{
+		const std::unordered_map<int32, std::list<SkillDiscoveryEntry>>& ri_skillDiscoveryStore = GetSkillDiscoveryStore();
+
+		typedef std::list<SkillDiscoveryEntry> SkillDiscoveryList;
+		typedef std::unordered_map<int32, SkillDiscoveryList> SkillDiscoveryMap;
+		SkillDiscoveryMap::const_iterator tab = ri_skillDiscoveryStore.find(int32(discoverSpellID));
+		if (tab != ri_skillDiscoveryStore.end())
+		{
+			SkillLineAbilityMapBounds bounds = sSpellMgr->GetSkillLineAbilityMapBounds(discoverSpellID);
+			uint32 skillvalue = bounds.first != bounds.second ? player->GetSkillValue(bounds.first->second->skillId) : uint32(0);
+			for (SkillDiscoveryList::const_iterator item_iter = tab->second.begin(); item_iter != tab->second.end(); ++item_iter)
+			{
+				RichardClass::m_spellsToLearnWith61288.push_back(item_iter->spellId);
+			}
+			int a=0;
+		}
+		int a=0;
+	}
+	else
+	{
+		int a=0;
+	}
+
+
+	//on regarde si  'spellID'  se trouve dans m_spellsToLearnWith61288.
+	// c'est a dire, si on est en train d'apprendre un glyphe mineur de la liste 61288
+	bool glypheMineurFrom61288 = false;
+	for(int i=0; i<RichardClass::m_spellsToLearnWith61288.size(); i++)
+	{
+		if ( RichardClass::m_spellsToLearnWith61288[i] == spellID )
+		{
+			glypheMineurFrom61288 = true;
+			break;
+		}
+	}
+
+
+	if ( glypheMineurFrom61288 )
+	{
+
+		// on ne veut pas de cooldown sur le spell d'apprentissage de glyph mineur ( 61288 ) qui est de 20 heures
+		// donc a chaque fois que Atlas apprends un sort ( un glyph mineur ) on reset le cooldown de 61288
+		// note, je n'ai PAS trouvé 61288 dans la database de Spell de SQLyog - sinon ca aurait été plus propre de modifier dans la database
+		player->RemoveSpellCooldown(discoverSpellID, true);
+
+		// ensuite en 2ieme etape, on donne un petit feedback sympa pour le joueur, pour informer ou il en est dans l'apprentissage
+		const std::unordered_map<int32, std::list<SkillDiscoveryEntry>>& ri_skillDiscoveryStore = GetSkillDiscoveryStore();
+		typedef std::list<SkillDiscoveryEntry> SkillDiscoveryList;
+		typedef std::unordered_map<int32, SkillDiscoveryList> SkillDiscoveryMap;
+		SkillDiscoveryMap::const_iterator tab = ri_skillDiscoveryStore.find(int32(discoverSpellID));
+		if (tab != ri_skillDiscoveryStore.end())
+		{
+			SkillLineAbilityMapBounds bounds = sSpellMgr->GetSkillLineAbilityMapBounds(discoverSpellID);
+			uint32 skillvalue = bounds.first != bounds.second ? player->GetSkillValue(bounds.first->second->skillId) : uint32(0);
+
+			int nbTotalSpell = 0;
+			int nbSpellCannotLearn = 0;
+			int nbSpellCanLearn = 0;
+			int nbSpellAlreadyKnown = 0;
+
+			for (SkillDiscoveryList::const_iterator item_iter = tab->second.begin(); item_iter != tab->second.end(); ++item_iter)
+			{
+				if (item_iter->reqSkillValue > skillvalue)
+				{
+					nbSpellCannotLearn++;
+				}
+				else
+				{
+					nbSpellCanLearn ++;
+				}
+
+				if (player->HasSpell(item_iter->spellId))
+				{
+					nbSpellAlreadyKnown++;
+				}
+
+				nbTotalSpell++;
+
+			}
+
+			char messageOut[2048];
+			sprintf(messageOut, "glyphes appris: %d/%d. (total a apprendre: %d)", nbSpellAlreadyKnown, nbSpellCanLearn, nbTotalSpell);
+			player->Say(messageOut, LANG_UNIVERSAL);
+
+			int a=0;
+
+		}
+		else
+		{
+			int a=0;
+		}
+			
+	
+
+	}
+
+	int a = 0;
+	return;
+}
 
   
 void OnChat(Player* player, uint32 type, uint32 lang, std::string& msg) override
@@ -1233,14 +1347,8 @@ void OnCreatureKill(Player* killer, Creature* victim) override
 			// #LISTE_ACCOUNT_HERE   -  ce hashtag repere tous les endroit que je dois updater quand je rajoute un nouveau compte - ou perso important
 			//
 			//list de tous les perso principaux de tout le monde
-			//mainPlayerGUID.push_back(4);  mainPlayerNames.push_back("Boulette");
-			//mainPlayerGUID.push_back(5);  mainPlayerNames.push_back("Bouillot");  <---- TODO pour WOTLK quand on aura créé nos persos
-			{
-				char messageOut[2048];
-				sprintf(messageOut, "ATTENTION! PAS DE LISTE DE PERSO !! TODO !!!!");
-				thisPLayer->Yell(messageOut, LANG_UNIVERSAL);
-			}
-
+			mainPlayerGUID.push_back(9);  mainPlayerNames.push_back("PBody");
+			mainPlayerGUID.push_back(10);  mainPlayerNames.push_back("Atlas");  
 
 
 
@@ -1334,7 +1442,7 @@ void OnCreatureKill(Player* killer, Creature* victim) override
 		{
 			if (thisPLayer->m_richa.m_richa_NpcKilled[i].npc_id == Victime_entry)
 			{
-				sLog->outBasic("RICHAR INFO - %s - %d  %d->%d", thisPLayer->GetName(), Victime_entry, thisPLayer->m_richa.m_richa_NpcKilled[i].nb_killed, thisPLayer->m_richa.m_richa_NpcKilled[i].nb_killed + 1);
+				sLog->outBasic("RICHAR INFO - %s - npc=%d  %d->%d", thisPLayer->GetName().c_str(), Victime_entry, thisPLayer->m_richa.m_richa_NpcKilled[i].nb_killed, thisPLayer->m_richa.m_richa_NpcKilled[i].nb_killed + 1);
 				thisPLayer->m_richa.m_richa_NpcKilled[i].nb_killed++; // on incremente le nb de killed
 				existInDataBase = true;
 				break;
@@ -1343,7 +1451,7 @@ void OnCreatureKill(Player* killer, Creature* victim) override
 
 		if (!existInDataBase)
 		{
-			sLog->outBasic("RICHAR INFO - %s - %d  1", thisPLayer->GetName(), Victime_entry);
+			sLog->outBasic("RICHAR INFO - %s - npc=%d  1", thisPLayer->GetName().c_str(), Victime_entry);
 			thisPLayer->m_richa.m_richa_NpcKilled.push_back(PlayerModeDataRicha::RICHA_NPC_KILLED_STAT(Victime_entry, 1));
 		}
 

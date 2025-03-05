@@ -80,6 +80,17 @@ InstanceSave* InstanceSaveManager::AddInstanceSave(uint32 mapId, uint32 instance
         resetTime = time(NULL) + 3*DAY; // normals expire after 3 days even if someone is still bound to them, cleared on startup
         extendedResetTime = 0;
     }
+
+
+	//////////////////////////////////////////////////
+	// RICHARD : augmenter reset de toutes les instances
+	// #RICHA_PERMA_INSTANCE
+	resetTime = time(NULL) + 400*DAY; 
+	extendedResetTime = 0; // j'ai pas bien compris ce qu etait extended.  je pense que c'est mieux de le mettre toujours a 0
+	///////////////////////////////////////////////////
+
+
+
     InstanceSave* save = new InstanceSave(mapId, instanceId, difficulty, resetTime, extendedResetTime);
     if (!startup)
         save->InsertToDB();

@@ -143,6 +143,26 @@ bool normalizePlayerName(std::string& name)
     if (!WStrToUtf8(wstr_buf, wstr_len, name))
         return false;
 
+
+
+
+
+	///////////////////////////////////////////////////////////////
+	//  RICHARD   Pbody -->  PBody
+	//  je suis obligé de faire ce fix, sinon la commande :   .appear PBody  ne va pas marcher.
+	//  je pense que ca peut etre pas mal d'ajouter ce cas spécial pour tous les call de  normalizePlayerName
+	//  j'espere que ca va pas casser des trucs
+	if ( name == "Pbody" )
+	{
+		name = "PBody";
+	}
+	//
+	//////////////////////////////////////////////////////////////////
+
+
+
+
+
     return true;
 }
 

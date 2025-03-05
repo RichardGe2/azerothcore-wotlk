@@ -109,6 +109,10 @@ class PoolMgr
         uint32 IsPartOfAPool(uint32 db_guid_or_pool_id) const;
 
         template<typename T>
+        bool Richa_RemoveFromPool(uint32 db_guid_or_pool_id);
+
+
+        template<typename T>
         bool IsSpawnedObject(uint32 db_guid_or_pool_id) const { return mSpawnedData.IsActiveObject<T>(db_guid_or_pool_id); }
 
         bool CheckPool(uint32 pool_id) const;
@@ -196,5 +200,29 @@ inline uint32 PoolMgr::IsPartOfAPool<Pool>(uint32 pool_id) const
 
     return 0;
 }
+
+
+
+
+
+
+template<>
+inline bool PoolMgr::Richa_RemoveFromPool<GameObject>(uint32 db_guid)
+{
+    SearchMap::const_iterator itr = mGameobjectSearchMap.find(db_guid);
+    if (itr != mGameobjectSearchMap.end())
+    {
+		mGameobjectSearchMap.erase(db_guid);
+		return true; // true = removed
+	}
+
+    return false; // false = pas removed
+}
+
+
+
+
+
+
 
 #endif

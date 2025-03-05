@@ -5,6 +5,8 @@
 #include "Configuration/Config.h"
 #include "Chat.h"
 #include "RichardClass.h"
+#include "MapManager.h"
+#include "Language.h"
 
 class MyCommand : public CommandScript
 {
@@ -55,12 +57,173 @@ public:
 			{ "okwin",			 SEC_PLAYER,	  true,   &HandleRichardCommand_clearLootWinners,		 "" },
 			{ "stat",			 SEC_PLAYER,	  true,   &Richar_tellMobStats,		 "" },
 			{ "notincombat",			 SEC_PLAYER,	  true,   &Richar_noMoreInComat,		 "" },
+
 			{ "richardhelp",			 SEC_PLAYER,	  true,   &Richar_help,		 "" },
+			{ "helprichard",			 SEC_PLAYER,	  true,   &Richar_help,		 "" },
+			{ "richard",				 SEC_PLAYER,	  true,   &Richar_help,		 "" },
+
 			{ "need",			 SEC_PLAYER,	  true,   &Richar_need,		 "" },
-			{ "killrichard",   SEC_PLAYER,	  true,   &HandleCommandRicha__killrichard,		 "" }
+			{ "killrichard",   SEC_PLAYER,	  true,   &HandleCommandRicha__killrichard,		 "" },
+
+			{ "rigocreature",   SEC_MODERATOR,	  true,   &HandleCommandRicha__GoCreatureCommand,		 "" },
+			{ "rigo",             SEC_MODERATOR,          false, &HandleCommandRicha__GoPlayerCommand,                "" },
 		};
 		return commandTable;
 	}
+
+	static bool HandleCommandRicha__GoPlayerCommand(ChatHandler* handler, char const* arg___)
+	{
+		if (!*arg___)
+			return false;
+
+		Player* player = handler->GetSession()->GetPlayer();
+
+		if ( strlen(arg___) > 4096 )
+		{
+			char messageee[2048];
+			sprintf(messageee, "ERROR ARG 4096 - A\n");
+			ChatHandler(player->GetSession()).SendSysMessage(messageee);
+			return false;
+		}
+
+		char arg[4096];
+		strcpy_s(arg,arg___);
+
+		char comm[4096];
+		sprintf(comm,".appear %s",arg);
+
+		player->Say(comm,LANG_UNIVERSAL);
+
+		int a=0;
+
+		return true;
+	}
+
+
+	static bool HandleCommandRicha__GoCreatureCommand(ChatHandler* handler, char const* args)
+	{
+		//
+		// je ne peux pas mettre d'espace, sinon la commande va etre coupée.
+		// du coup, a la place des espaces, mettre des  #   
+		//
+
+		if (!*args)
+			return false;
+
+		Player* player = handler->GetSession()->GetPlayer();
+
+		// "id" or number or [name] Shift-click form |color|Hcreature_entry:creature_id|h[name]|h|r
+		char* param1 = handler->extractKeyFromLink((char*)args, "Hcreature");
+		if (!param1)
+			return false;
+
+		std::ostringstream whereClause;
+
+		std::string name = param1;
+
+		// enlever les majuscules
+		// remplacer les # par des espaces
+		for(int iii=0; iii<name.size(); iii++)
+		{
+			if ( name[iii] >= 'A' && name[iii] <= 'Z' )
+			{
+				name[iii] = (name[iii]-'A')+'a';
+			}
+			if ( name[iii] == '#')
+			{
+				name[iii] = ' ';
+			}
+		}
+
+		int32 entryFound = 0;
+		for(int32 iEntry=0; iEntry<182772; iEntry++) // c'est super moche, mais j'ai pas compris comment lister les entry de creature template
+		{
+			CreatureLocale const* cl = sObjectMgr->GetCreatureLocale(iEntry);
+			if (cl)
+			{
+				std::string nameFrench = "";
+				if ( cl->Name.size() > LOCALE_frFR )
+				{
+					nameFrench = cl->Name[LOCALE_frFR];
+				}
+
+				// enlever les majuscules
+				for(int iii=0; iii<nameFrench.size(); iii++)
+				{
+					if ( nameFrench[iii] >= 'A' && nameFrench[iii] <= 'Z' )
+					{
+						nameFrench[iii] = (nameFrench[iii]-'A')+'a';
+					}
+				}
+
+
+				if ( nameFrench != "" && nameFrench.find(name) != std::string::npos  )
+				{
+					// nom trouvé !
+					entryFound = iEntry;
+					break;
+				}
+			}
+		}
+
+		if ( entryFound == 0 )
+		{
+			return false;
+		}
+
+		whereClause << "WHERE id = '" << entryFound << '\'';
+
+
+		QueryResult result = WorldDatabase.PQuery("SELECT position_x, position_y, position_z, orientation, map, guid, id FROM creature %s", whereClause.str().c_str());
+		if (!result)
+		{
+			handler->SendSysMessage(LANG_COMMAND_GOCREATNOTFOUND);
+			handler->SetSentErrorMessage(true);
+			return false;
+		}
+		if (result->GetRowCount() > 1)
+			handler->SendSysMessage(LANG_COMMAND_GOCREATMULTIPLE);
+
+		Field* fields = result->Fetch();
+		float x = fields[0].GetFloat();
+		float y = fields[1].GetFloat();
+		float z = fields[2].GetFloat();
+		float ort = fields[3].GetFloat();
+		int mapId = fields[4].GetUInt16();
+		uint32 guid = fields[5].GetUInt32();
+		uint32 id = fields[6].GetUInt32();
+
+		// if creature is in same map with caster go at its current location
+		if (Creature* creature = ObjectAccessor::GetCreature(*player, MAKE_NEW_GUID(guid, id, HIGHGUID_UNIT)))
+		{
+			x = creature->GetPositionX();
+			y = creature->GetPositionY();
+			z = creature->GetPositionZ();
+			ort = creature->GetOrientation();
+		}
+
+		if (!MapManager::IsValidMapCoord(mapId, x, y, z, ort))
+		{
+			handler->PSendSysMessage(LANG_INVALID_TARGET_COORD, x, y, mapId);
+			handler->SetSentErrorMessage(true);
+			return false;
+		}
+
+		// stop flight if need
+		if (player->IsInFlight())
+		{
+			player->GetMotionMaster()->MovementExpired();
+			player->CleanupAfterTaxiFlight();
+		}
+		// save only in non-flight case
+		else
+			player->SaveRecallPosition();
+
+		player->TeleportTo(mapId, x, y, z, ort);
+		return true;
+	}
+
+
 
 	static bool HandleCommandRicha__killrichard(ChatHandler* handler, char const* args)
 	{
@@ -333,7 +496,24 @@ public:
 					ItemTemplate const* itemProto = sObjectMgr->GetItemTemplate(itemID);
 					if (itemProto)
 					{
-						itemName = std::string(itemProto->Name1);
+
+						std::string nameFrench = "";
+						if (ItemLocale const* il = sObjectMgr->GetItemLocale(itemID))
+						{
+							if ( il->Name.size() > LOCALE_frFR )
+							{
+								nameFrench = il->Name[LOCALE_frFR];
+							}
+						}
+
+						if ( nameFrench != "" )
+						{
+							itemName = nameFrench;
+						}
+						else
+						{
+							itemName = std::string(itemProto->Name1);
+						}
 					}
 
 					// id dans la base de donnée
@@ -613,6 +793,52 @@ public:
 
 		}
 
+
+
+		/*
+		// garder ce source code, si je veux re-generer le TXT
+		ofstream myfile;
+		myfile.open ("RICHARDS_WOTLK/exportMapList.txt" , ios::binary);
+		myfile << "Fichier genere. rechercher GENERATE_RICHA_MAP_LIST dans le source code.\r\n";
+		int nb = sMapStore.GetNumRows(); // nb = 725  .  mais en fait il n'y a que 135 maps
+        for (uint32 id = 0; id < nb; id++)
+        {
+            if (MapEntry const* mapInfo = sMapStore.LookupEntry(id))
+            {
+				// tous les name[ >0  ] semblent vides
+                std::string name = mapInfo->name[0];
+				std::string name1 = mapInfo->name[1];
+				std::string name2 = mapInfo->name[2];
+				std::string name3 = mapInfo->name[3];
+				std::string name4 = mapInfo->name[4];
+				std::string name5 = mapInfo->name[5];
+				std::string name6 = mapInfo->name[6];
+				std::string name7 = mapInfo->name[7];
+				std::string name8 = mapInfo->name[8];
+				std::string name9 = mapInfo->name[9];
+				std::string name10 = mapInfo->name[10];
+				std::string name11 = mapInfo->name[11];
+				std::string name12 = mapInfo->name[12];
+				std::string name13 = mapInfo->name[13];
+				std::string name14 = mapInfo->name[14];
+				std::string name15 = mapInfo->name[15];
+                if (name.empty())
+                    continue; // ceci n'arrive jamais  ( pour name[0] )
+
+				myfile << id << ";";
+				myfile << name << "\r\n";
+			}
+			else
+			{
+				int a=0;
+			}
+		}
+		myfile.close();
+		int a=0;
+		*/
+
+
+
 		return true;
 	}
 
@@ -814,13 +1040,33 @@ public:
 		{
 			float distanceFromObject = 0.0f;
 
-			char messageee[2048];
+			char messageee[4096];
+
+			Creature* cast_creature = dynamic_cast<Creature*>(target);
+
+			std::string nameFrench = "";
+			if (cast_creature)
+			{
+				CreatureTemplate const* cinfo = cast_creature->GetCreatureTemplate();
+				if ( cinfo )
+				{
+					CreatureLocale const* cl = sObjectMgr->GetCreatureLocale(cinfo->Entry);
+					if (cl)
+					{
+						if ( cl->Name.size() > LOCALE_frFR )
+						{
+							nameFrench = cl->Name[LOCALE_frFR];
+						}
+					}
+				}
+			}
+
 
 			sprintf(messageee, "==== INFO ========================");
 			//sLog->outBasic(messageee);
 			ChatHandler(player->GetSession()).SendSysMessage(messageee);
 
-			sprintf(messageee, "Name = %s", target->GetName().c_str());
+			sprintf(messageee, "Name = %s (%s)", nameFrench.c_str(), target->GetName().c_str());
 			//sLog->outBasic(messageee);
 			ChatHandler(player->GetSession()).SendSysMessage(messageee);
 
@@ -834,7 +1080,7 @@ public:
 			//ChatHandler(player->GetSession()).SendSysMessage(messageee);
 
 
-			Creature* cast_creature = dynamic_cast<Creature*>(target);
+			
 
 			if (cast_creature)
 			{
@@ -882,12 +1128,10 @@ public:
 				//if (cinfo)
 				if (true)
 				{
-					//je repro la formule utilisée dans  Creature::SelectLevel :
-					sprintf(messageee, "base attack - min dmg = %f", cinfo->mindmg );
-					sLog->outBasic(messageee);
-					ChatHandler(player->GetSession()).SendSysMessage(messageee);
-
-					sprintf(messageee, "base attack - max dmg = %f", cinfo->maxdmg );
+					// valeur d'attaque qui ne prend PAS en compte Richar_difficuly_degat.
+					// (et surement d'autres facteurs, cf. CalculateMinMaxDamage)
+					// pour avoir la vraie valeur d'attaque, ca me semble un peu compliqué. donc je la donne pas pour l'instant
+					sprintf(messageee, "dmg (avant Richar_difficuly) = %f->%f", cinfo->mindmg, cinfo->maxdmg );
 					sLog->outBasic(messageee);
 					ChatHandler(player->GetSession()).SendSysMessage(messageee);
 

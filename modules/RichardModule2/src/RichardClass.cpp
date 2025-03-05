@@ -15,10 +15,13 @@
 #include "LootItemStorage.h"
 #include "Group.h"
 #include "WorldDatabase.h"
+#include "PoolMgr.h"
 #include <ctime>
 #include <iostream>
 #include <vector>
 #include <string>
+#include <fstream>
+#include "Item.h"
 
 #define ZONE_UPDATE_INTERVAL (2*IN_MILLISECONDS)
 
@@ -393,7 +396,7 @@ bool RichardClass::ExecuteCommand_richard_D(const char* text, Player* playerrr)
 
 
 
-
+		
 
 		if (!objectFound)
 		{
@@ -403,95 +406,9 @@ bool RichardClass::ExecuteCommand_richard_D(const char* text, Player* playerrr)
 		}
 		else
 		{
-
-
-
-			char messageOUt[2048];
-			sprintf(messageOUt, "quest=%d", questID);
-			ChatHandler(playerrr->GetSession()).SendSysMessage(messageOUt);
-
-			if (queeeFound->RequiredItemCount[0])
-			{
-				std::string itemNameLink = Richa_itemIdToNiceLink(queeeFound->RequiredItemId[0]);
-				char messageOUt[2048];
-				sprintf(messageOUt, "%d %s (item=%d)", queeeFound->RequiredItemCount[0], itemNameLink.c_str(), queeeFound->RequiredItemId[0]);
-				ChatHandler(playerrr->GetSession()).SendSysMessage(messageOUt);
-			}
-			if (queeeFound->RequiredItemCount[1])
-			{
-				std::string itemNameLink = Richa_itemIdToNiceLink(queeeFound->RequiredItemId[1]);
-				char messageOUt[2048];
-				sprintf(messageOUt, "%d %s (item=%d)", queeeFound->RequiredItemCount[1], itemNameLink.c_str(), queeeFound->RequiredItemId[1]);
-				ChatHandler(playerrr->GetSession()).SendSysMessage(messageOUt);
-			}
-			if (queeeFound->RequiredItemCount[2])
-			{
-				std::string itemNameLink = Richa_itemIdToNiceLink(queeeFound->RequiredItemId[2]);
-				char messageOUt[2048];
-				sprintf(messageOUt, "%d %s (item=%d)", queeeFound->RequiredItemCount[2], itemNameLink.c_str(), queeeFound->RequiredItemId[2]);
-				ChatHandler(playerrr->GetSession()).SendSysMessage(messageOUt);
-			}
-			if (queeeFound->RequiredItemCount[3])
-			{
-				std::string itemNameLink = Richa_itemIdToNiceLink(queeeFound->RequiredItemId[3]);
-				char messageOUt[2048];
-				sprintf(messageOUt, "%d %s (item=%d)", queeeFound->RequiredItemCount[3], itemNameLink.c_str(), queeeFound->RequiredItemId[3]);
-				ChatHandler(playerrr->GetSession()).SendSysMessage(messageOUt);
-			}
-			if (queeeFound->RequiredNpcOrGoCount[0])
-			{
-				char messageOUt[2048];
-				if (queeeFound->RequiredNpcOrGo[0] > 0)
-				{
-					sprintf(messageOUt, "%d npc=%d", queeeFound->RequiredNpcOrGoCount[0], queeeFound->RequiredNpcOrGo[0]);
-				}
-				else
-				{
-					sprintf(messageOUt, "%d object=%d", queeeFound->RequiredNpcOrGoCount[0], -queeeFound->RequiredNpcOrGo[0]);
-				}
-				ChatHandler(playerrr->GetSession()).SendSysMessage(messageOUt);
-			}
-			if (queeeFound->RequiredNpcOrGoCount[1])
-			{
-				char messageOUt[2048];
-				if (queeeFound->RequiredNpcOrGo[1] > 0)
-				{
-					sprintf(messageOUt, "%d npc=%d", queeeFound->RequiredNpcOrGoCount[1], queeeFound->RequiredNpcOrGo[1]);
-				}
-				else
-				{
-					sprintf(messageOUt, "%d object=%d", queeeFound->RequiredNpcOrGoCount[1], -queeeFound->RequiredNpcOrGo[1]);
-				}
-				ChatHandler(playerrr->GetSession()).SendSysMessage(messageOUt);
-			}
-			if (queeeFound->RequiredNpcOrGoCount[2])
-			{
-				char messageOUt[2048];
-				if (queeeFound->RequiredNpcOrGo[2] > 0)
-				{
-					sprintf(messageOUt, "%d npc=%d", queeeFound->RequiredNpcOrGoCount[2], queeeFound->RequiredNpcOrGo[2]);
-				}
-				else
-				{
-					sprintf(messageOUt, "%d object=%d", queeeFound->RequiredNpcOrGoCount[2], -queeeFound->RequiredNpcOrGo[2]);
-				}
-				ChatHandler(playerrr->GetSession()).SendSysMessage(messageOUt);
-			}
-			if (queeeFound->RequiredNpcOrGoCount[3])
-			{
-				char messageOUt[2048];
-				if (queeeFound->RequiredNpcOrGo[3] > 0)
-				{
-					sprintf(messageOUt, "%d npc=%d", queeeFound->RequiredNpcOrGoCount[3], queeeFound->RequiredNpcOrGo[3]);
-				}
-				else
-				{
-					sprintf(messageOUt, "%d object=%d", queeeFound->RequiredNpcOrGoCount[3], -queeeFound->RequiredNpcOrGo[3]);
-				}
-				ChatHandler(playerrr->GetSession()).SendSysMessage(messageOUt);
-			}
-
+			ExecuteCommand_richard_E_questInfo(questID,playerrr);
 		}
+		
 
 		return true; // si le string commence par  q=   on va considerer que c'est pris en charge dans tous les cas
 	}
@@ -499,6 +416,137 @@ bool RichardClass::ExecuteCommand_richard_D(const char* text, Player* playerrr)
 
 	return false;
 
+}
+
+bool RichardClass::ExecuteCommand_richard_E_questInfo(unsigned int questID , Player* playerrr)
+{
+	Quest* queeeFound = 0;
+	unsigned int nbQuest = 0;
+	bool objectFound = false;
+
+	ObjectMgr::QuestMap const& questTemplates = sObjectMgr->GetQuestTemplates();
+	for (ObjectMgr::QuestMap::const_iterator iter = questTemplates.begin(); iter != questTemplates.end(); ++iter)
+	{
+		Quest* queee = iter->second;
+
+		uint32 idd = queee->GetQuestId();
+
+		// on est obligé de faire ca, car plusieurs quetes peuvent avoir le meme noms, genre Tome of the Cabal - 
+		// donc il faut s'assurer de prendre la quete qui est dans l'inventaire du joueur
+		bool thisQuestIsInPlayerList = false;
+		for (int i = 0; i < MAX_QUEST_LOG_SIZE; ++i)
+		{
+			uint32 questidFromPlayer = playerrr->GetQuestSlotQuestId(i);
+			if (questidFromPlayer == idd)
+			{
+				thisQuestIsInPlayerList = true;
+			}
+		}
+
+		std::string title = queee->GetTitle();
+		int aaa = 0;
+		if (thisQuestIsInPlayerList && idd == questID)
+		{
+			queeeFound = queee;
+			objectFound = true;
+			int aaa = 0;
+		}
+		nbQuest++;
+	}
+
+
+	if ( objectFound )
+	{
+
+		char messageOUt[2048];
+		sprintf(messageOUt, "quest=%d", questID);
+		ChatHandler(playerrr->GetSession()).SendSysMessage(messageOUt);
+
+		if (queeeFound->RequiredItemCount[0])
+		{
+			std::string itemNameLink = Richa_itemIdToNiceLink(queeeFound->RequiredItemId[0]);
+			char messageOUt[2048];
+			sprintf(messageOUt, "%d %s (item=%d)", queeeFound->RequiredItemCount[0], itemNameLink.c_str(), queeeFound->RequiredItemId[0]);
+			ChatHandler(playerrr->GetSession()).SendSysMessage(messageOUt);
+		}
+		if (queeeFound->RequiredItemCount[1])
+		{
+			std::string itemNameLink = Richa_itemIdToNiceLink(queeeFound->RequiredItemId[1]);
+			char messageOUt[2048];
+			sprintf(messageOUt, "%d %s (item=%d)", queeeFound->RequiredItemCount[1], itemNameLink.c_str(), queeeFound->RequiredItemId[1]);
+			ChatHandler(playerrr->GetSession()).SendSysMessage(messageOUt);
+		}
+		if (queeeFound->RequiredItemCount[2])
+		{
+			std::string itemNameLink = Richa_itemIdToNiceLink(queeeFound->RequiredItemId[2]);
+			char messageOUt[2048];
+			sprintf(messageOUt, "%d %s (item=%d)", queeeFound->RequiredItemCount[2], itemNameLink.c_str(), queeeFound->RequiredItemId[2]);
+			ChatHandler(playerrr->GetSession()).SendSysMessage(messageOUt);
+		}
+		if (queeeFound->RequiredItemCount[3])
+		{
+			std::string itemNameLink = Richa_itemIdToNiceLink(queeeFound->RequiredItemId[3]);
+			char messageOUt[2048];
+			sprintf(messageOUt, "%d %s (item=%d)", queeeFound->RequiredItemCount[3], itemNameLink.c_str(), queeeFound->RequiredItemId[3]);
+			ChatHandler(playerrr->GetSession()).SendSysMessage(messageOUt);
+		}
+		if (queeeFound->RequiredNpcOrGoCount[0])
+		{
+			char messageOUt[2048];
+			if (queeeFound->RequiredNpcOrGo[0] > 0)
+			{
+				sprintf(messageOUt, "%d npc=%d", queeeFound->RequiredNpcOrGoCount[0], queeeFound->RequiredNpcOrGo[0]);
+			}
+			else
+			{
+				sprintf(messageOUt, "%d object=%d", queeeFound->RequiredNpcOrGoCount[0], -queeeFound->RequiredNpcOrGo[0]);
+			}
+			ChatHandler(playerrr->GetSession()).SendSysMessage(messageOUt);
+		}
+		if (queeeFound->RequiredNpcOrGoCount[1])
+		{
+			char messageOUt[2048];
+			if (queeeFound->RequiredNpcOrGo[1] > 0)
+			{
+				sprintf(messageOUt, "%d npc=%d", queeeFound->RequiredNpcOrGoCount[1], queeeFound->RequiredNpcOrGo[1]);
+			}
+			else
+			{
+				sprintf(messageOUt, "%d object=%d", queeeFound->RequiredNpcOrGoCount[1], -queeeFound->RequiredNpcOrGo[1]);
+			}
+			ChatHandler(playerrr->GetSession()).SendSysMessage(messageOUt);
+		}
+		if (queeeFound->RequiredNpcOrGoCount[2])
+		{
+			char messageOUt[2048];
+			if (queeeFound->RequiredNpcOrGo[2] > 0)
+			{
+				sprintf(messageOUt, "%d npc=%d", queeeFound->RequiredNpcOrGoCount[2], queeeFound->RequiredNpcOrGo[2]);
+			}
+			else
+			{
+				sprintf(messageOUt, "%d object=%d", queeeFound->RequiredNpcOrGoCount[2], -queeeFound->RequiredNpcOrGo[2]);
+			}
+			ChatHandler(playerrr->GetSession()).SendSysMessage(messageOUt);
+		}
+		if (queeeFound->RequiredNpcOrGoCount[3])
+		{
+			char messageOUt[2048];
+			if (queeeFound->RequiredNpcOrGo[3] > 0)
+			{
+				sprintf(messageOUt, "%d npc=%d", queeeFound->RequiredNpcOrGoCount[3], queeeFound->RequiredNpcOrGo[3]);
+			}
+			else
+			{
+				sprintf(messageOUt, "%d object=%d", queeeFound->RequiredNpcOrGoCount[3], -queeeFound->RequiredNpcOrGo[3]);
+			}
+			ChatHandler(playerrr->GetSession()).SendSysMessage(messageOUt);
+		}
+
+		return true;
+	}
+
+	return false;
 }
 
 
@@ -560,11 +608,96 @@ bool  RichardClass::ExtractUInt32Base(char** args, uint32& val, uint32 base)
 
 
 // exemple pour WOTLK :
+//  " |cff808080|Hquest:470:24|h[En creusant dans la vase]|h|r"
+//  va output :  470
+unsigned long RichardClass::Richa_NiceLinkToQuestID(const char* str)
+{
+	std::string input = std::string(str);
+
+	// je sais pas si ca peut arriver... mais dans le doute, je vais gerer un cas ou il n'y a pas d'espace au debut.
+	if (
+		input.size() > 24
+		&& input[1-1] == '|'
+		&&  input[2-1] == 'c'
+		&&  input[11-1] == '|'
+		&&  input[12-1] == 'H'
+		&&  input[13-1] == 'q'
+		&&  input[14-1] == 'u'
+		&&  input[15-1] == 'e'
+		&&  input[16-1] == 's'
+		&&  input[17-1] == 't'
+		&&  input[18-1] == ':'
+		)
+	{
+		input = ' ' + input; // on rajoute une espace.
+	}
+
+
+
+	if (
+		input.size() > 24
+		&& input[0] == ' '
+		&& input[1] == '|'
+		&&  input[2] == 'c'
+		&&  input[11] == '|'
+		&&  input[12] == 'H'
+		&&  input[13] == 'q'
+		&&  input[14] == 'u'
+		&&  input[15] == 'e'
+		&&  input[16] == 's'
+		&&  input[17] == 't'
+		&&  input[18] == ':'
+		)
+	{
+		std::string id = "";
+		for (int i = 19; ; i++)
+		{
+			if (i >= input.size())
+			{
+				return -1;
+			}
+
+			if (input[i] < '0' || input[i] > '9')
+				break;
+
+			id += input[i];
+		}
+
+		unsigned long idFinal = std::strtoul(id.c_str(), NULL, 10);
+
+		return idFinal;
+	}
+	return -1;
+}
+
+
+// exemple pour WOTLK :
 // " |cffffffff|Hitem:6507:0:0:0:0:0:0:0:3|h[Brassards d'infanterie]|h|r"   ( avec un espace au debut ! )
 //  va output :  6507
+//
+// en fait, on peut ne PAS avoir d'espace au debut:
+// "|cffffffff|Hitem:2447:0:0:0:0:0:0:0:80|h[Pacifique]|h|r"
+// donc je vais gerer les 2 cas.
 unsigned long RichardClass::Richa_NiceLinkToIitemID(const char* str)
 {
 	std::string input = std::string(str);
+
+	// gestion du cas sans espace
+	if (
+		input.size() > 24
+		&& input[1-1] == '|'
+		&&  input[2-1] == 'c'
+		&&  input[11-1] == '|'
+		&&  input[12-1] == 'H'
+		&&  input[13-1] == 'i'
+		&&  input[14-1] == 't'
+		&&  input[15-1] == 'e'
+		&&  input[16-1] == 'm'
+		&&  input[17-1] == ':'
+		)
+	{
+		input = ' ' + input; // on rajoute une espace.
+	}
 
 	if (
 		input.size() > 24
@@ -602,24 +735,35 @@ unsigned long RichardClass::Richa_NiceLinkToIitemID(const char* str)
 }
 
 
-//deja, on regarde si   text est un lien vers un objet  (joueur a fait  Majuscule + click gauche sur objet)
-//
-// exemple pour WOTLK :
-// " |cffffffff|Hitem:6507:0:0:0:0:0:0:0:3|h[Brassards d'infanterie]|h|r"   ( avec un espace au debut ! )
-//
-//je crois que le premier nombre est la couleur
+//deja, on regarde si   text est un lien vers un objet/quete  (joueur a fait  Majuscule + click gauche dessus)
 bool RichardClass::ExecuteCommand_richard_A(const char* text, Player* playerrrr)
 {
+	unsigned long numberID = 0;
 
-	unsigned long numberID = RichardClass::Richa_NiceLinkToIitemID(text);
-	if ( numberID == -1 )
+	numberID = RichardClass::Richa_NiceLinkToIitemID(text);
+	if ( numberID != -1 )
 	{
-		return false;
+		bool chargeee = ExecuteCommand_richard_2(numberID, playerrrr);
+		if ( chargeee )
+		{
+			return true;
+		}
 	}
 
-	bool chargeee = ExecuteCommand_richard_2(numberID, playerrrr);
 
-	return chargeee;
+	numberID = RichardClass::Richa_NiceLinkToQuestID(text);
+	if ( numberID != -1 )
+	{
+		bool chargeee = ExecuteCommand_richard_E_questInfo(numberID, playerrrr);
+		if ( chargeee )
+		{
+			return true;
+		}
+	}
+
+	
+
+	return false;
 }
 
 
@@ -659,14 +803,12 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 	uint32 account_guid = sObjectMgr->GetPlayerAccountIdByGUID(guiiddd);
 
 	// #LISTE_ACCOUNT_HERE  -   ce hashtag repere tous les endroit que je dois updater quand je rajoute un nouveau compte - ou perso important
-	/*
-	if (account_guid == 5  // richard
-		|| account_guid == 7  // grandjuge
-		|| account_guid == 10  // richard2
+	if (
+		account_guid != 15  // diane
 		)
-	{*/
+	{
 		developerInfo = true;
-	//}
+	}
 
 
 
@@ -729,6 +871,38 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 
 	SpellEntry const* spellProtoypeLearn = 0;
 
+
+	/*
+
+	if (   itemProtoype->Spells[0].SpellId == 483
+		&& itemProtoype->Spells[1].SpellId != 0
+		)
+	{
+		SpellEntry const* spellProtoype0 = sSpellStore.LookupEntry(itemProtoype->Spells[0].SpellId);
+		SpellEntry const* spellProtoype1 = sSpellStore.LookupEntry(itemProtoype->Spells[1].SpellId);
+
+		if ( spellProtoype0 && spellProtoype1 )
+		{
+			if (spellProtoype0->Effect[0] != SPELL_EFFECT_LEARN_SPELL) // juste un check de sécurité
+			{
+				// on devrait jamais arriver la ?
+				int a=0;
+			}
+			else
+			{
+				
+			}
+
+		}
+		else
+		{
+			int a=0;
+		}
+
+	}
+	*/
+
+	
 	if (itemProtoype->Spells[0].SpellId != 0)
 	{
 		SpellEntry const* spellProtoype = sSpellStore.LookupEntry(itemProtoype->Spells[0].SpellId);
@@ -737,11 +911,13 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 
 			if (spellProtoype->Effect[0] == SPELL_EFFECT_LEARN_SPELL)
 			{
-				spellProtoypeLearn = sSpellStore.LookupEntry(spellProtoype->EffectTriggerSpell[0]);
+				// dans WOTLK on a    Spells[0] = 483  (= sort "Apprentissage")
+				//          suivi par Spells[1] = le sort que l'item apprend
+				spellProtoypeLearn = sSpellStore.LookupEntry(itemProtoype->Spells[1].SpellId);
 				if (spellProtoypeLearn)
 				{
 					sprintf(messageOUt, "Item.spellid_1->effect#1= Learn Spell %d (%s)", spellProtoype->EffectTriggerSpell[0], spellProtoypeLearn->SpellName[0]);
-					searchKnowSpell = spellProtoype->EffectTriggerSpell[0];
+					searchKnowSpell = itemProtoype->Spells[1].SpellId;
 				}
 				else
 				{
@@ -787,7 +963,7 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 		}
 
 	}
-
+	
 
 
 
@@ -797,27 +973,30 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 
 		std::string nameToSearch = "";
 
+		// #LISTE_ACCOUNT_HERE  -   ce hashtag repere tous les endroit que je dois updater quand je rajoute un nouveau compte - ou perso important
 		// associer un metier a notre premier perso :
 		// lister ici LE perso PRINCIPAL qui est responsable du metier.
 		if (false) {}
-		if (itemProtoype->RequiredSkill == SKILL_COOKING
+		if (   itemProtoype->RequiredSkill == SKILL_COOKING
 			|| itemProtoype->RequiredSkill == SKILL_ALCHEMY
 			|| itemProtoype->RequiredSkill == SKILL_HERBALISM
 			|| itemProtoype->RequiredSkill == SKILL_LEATHERWORKING
 			|| itemProtoype->RequiredSkill == SKILL_TAILORING
 			|| itemProtoype->RequiredSkill == SKILL_FIRST_AID
+			|| itemProtoype->RequiredSkill == SKILL_INSCRIPTION
 			)
 		{
-			nameToSearch = "Boulette";
+			nameToSearch = "Atlas";
 		}
-		if (itemProtoype->RequiredSkill == SKILL_ENGINEERING
+		if (   itemProtoype->RequiredSkill == SKILL_ENGINEERING
 			|| itemProtoype->RequiredSkill == SKILL_BLACKSMITHING
 			|| itemProtoype->RequiredSkill == SKILL_FISHING
 			|| itemProtoype->RequiredSkill == SKILL_ENCHANTING
 			|| itemProtoype->RequiredSkill == SKILL_MINING
+			|| itemProtoype->RequiredSkill == SKILL_JEWELCRAFTING
 			)
 		{
-			nameToSearch = "Bouillot";
+			nameToSearch = "PBody";
 		}
 		else
 		{
@@ -827,6 +1006,20 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 			int aaa = 0;
 		}
 
+		//juste histoire d'aider le debug, et de pas creer de cas particulier, si vraiment on a pas de nom, on en prend un au pif
+		if ( nameToSearch == "" )
+		{
+			nameToSearch = "PBody";
+		}
+
+		// je pense que ca a pas bcp d'interet de rechercher pour soit meme, donc rechercher pour son equipier
+		if ( nameToSearch == player->GetName() )
+		{
+			if ( nameToSearch == "Atlas" ) { nameToSearch = "PBody"; }
+			if ( nameToSearch == "PBody" ) { nameToSearch = "Atlas"; }
+		}
+
+		
 
 
 
@@ -997,17 +1190,62 @@ bool RichardClass::ExecuteCommand_richard_2(int numberID, Player* player)
 		}
 
 
+		// on essaye d'avoir le nom du spell en francais a partir du CSV que j'ai généré a partir du projet wow_wotlk_csv_parser ( projet qui est sur mon PC de dev principal )
+		std::string spellFrenchName = spellProtoypeLearn->SpellName[0];
+		{
+			std::ifstream myfile("RICHARDS_WOTLK/DATA/wotlk-patch-frFR-3-Spell.dbc_Id_FrName.csv");
+			if (myfile.is_open())
+			{
+				std::string line;
+				while (std::getline(myfile, line))
+				{
+					if ( line.size() > 4 )
+					{
+						int id = atoi(line.c_str());
+						if ( id == searchKnowSpell )
+						{
+							spellFrenchName = "";
+							bool inName = false;
+							for(int i=0; i<line.size() ; i++)
+							{
+								if ( line[i] == '"' )
+								{
+									if ( !inName )
+									{
+										inName = true;
+									}
+									else
+									{
+										break;
+									}
+								}
+								else
+								{
+									if ( inName )
+									{
+										spellFrenchName += line[i];
+									}
+								}
+							}
+							break;
+						}
+					}
+				}
+				myfile.close();
+			}
+			
+		}
 
 
 
 		if (KnownByPlayer)
 		{
-			sprintf(messageOUt, "%s est CONNU par %s", spellProtoypeLearn->SpellName[0], nameToSearch.c_str());
+			sprintf(messageOUt, "%s est CONNU par %s", spellFrenchName.c_str(), nameToSearch.c_str());
 			ChatHandler(player->GetSession()).SendSysMessage(messageOUt);
 		}
 		else
 		{
-			sprintf(messageOUt, "%s est INCONNU par %s", spellProtoypeLearn->SpellName[0], nameToSearch.c_str());
+			sprintf(messageOUt, "%s est INCONNU par %s", spellFrenchName.c_str(), nameToSearch.c_str());
 			ChatHandler(player->GetSession()).SendSysMessage(messageOUt);
 		}
 
@@ -1503,7 +1741,24 @@ std::string RichardClass::Richa_itemIdToNiceLink(unsigned long itemID)
 
 	if (itemProto)
 	{
-		itemName = std::string(itemProto->Name1);
+
+		std::string nameFrench = "";
+		if (ItemLocale const* il = sObjectMgr->GetItemLocale(itemID))
+		{
+			if ( il->Name.size() > LOCALE_frFR )
+			{
+				nameFrench = il->Name[LOCALE_frFR];
+			}
+		}
+
+		if ( nameFrench != "" )
+		{
+			itemName = nameFrench;
+		}
+		else
+		{
+			itemName = std::string(itemProto->Name1);
+		}
 
 
 		//0xff9d9d9d,		// GREY
@@ -1723,13 +1978,16 @@ float CreatureModeDataRicha::GetRichardModForMap(const std::string& cPosRicha, c
 	// pour donner un petit example, on a joué a Hache Tripe, on difficulté 1.0, puis en difficulté 1.2.
 	// on a vraiment senti une grosse difference.
 	// donc chaque 0.1 de cette valeur est importante.
+	//
+	// pour ce serveur WOTLK Azecore, si jamais je change ces coeff il n'y a pas besoin de reset l'instance pour que les PNJ se mettent a jour
+	//                                je confirme que ca va bien modifier les degat phyqique, et les degat des sort. donc tout marche bien.
 	// 
-	const float coeffDiffLowlevel_DEGAT = 0.65;
-	const float coeffDiffLowlevel_HEALTH = 1.0; // a voir si 1.0 pour la vie, c'est bien ...
+	const float coeffDiffLowlevel_DEGAT =   0.65;
+	const float coeffDiffLowlevel_HEALTH =  0.99; // a voir si 1.0 pour la vie, c'est bien ...  (juste histoire de pas mettre 1, je mets 0.99 - plus partique pour debugger)
+
+
 
 	// note : si j'aim généré les map a partir d'un jeu FR  (comme j'ai fait pour WOTLK)  , alors les noms seront en FR
-
-
 	if (cPosRicha == "Eastern Kingdoms" || cPosRicha == "Royaumes de l'est") { outNumber = 1.0; outDifficulteHeath = 1.0; donjonLevel_out = 0.0f; out_nbPlayerOriginal__ = 1; }
 	else if (cPosRicha == "Kalimdor") { outNumber = 1.0; outDifficulteHeath = 1.0; donjonLevel_out = 0.0f; out_nbPlayerOriginal__ = 1; }
 	else if (cPosRicha == "Norfendre" || cPosRicha == "Northrend" ) { outNumber = 1.0; outDifficulteHeath = 1.0; donjonLevel_out = 0.0f; out_nbPlayerOriginal__ = 1; }
@@ -2536,22 +2794,42 @@ void PlayerModeDataRicha::richa_importFrom_richaracter_(uint64 guid__,
 	if (!infile.is_open() || infile.fail())
 	{
 		// si on arrive la c'est certainement car un nouveau perso a été créé.
-		//  NON EN FAIT car  richa_exportTo_richaracter_  est appelé au moment de creation du perso
-		// donc il n'y a aucune raison de ne pas pouvroi ouvrir ce fichier
-		// et donc c'est une errur tres grave 
+		// car  richa_exportTo_richaracter_  n'est PAS appelé au moment de creation du perso
+
 
 		char NPath[1024];
 		GetCurrentDirectoryA(1024, NPath);
 
-		sLog->outBasic("RICHAR WARNING GRAVE 85XC2 : Can't find save file for guid = %d : !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", (int32_t)guid__);
-		sLog->outBasic("						   : working dir = %s", NPath);
+		sLog->outBasic("RICHAR WARNING 85XC2 : Can't find save file for guid = %d : !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", (int32_t)guid__);
+		sLog->outBasic("					 : working dir = %s", NPath);
 
 
+		
+		// si ca arrive pour des persos connus
 		// je prefere bloquer le serveur plutot que charger n'importe quoi ou prendre le risque d'effacer des data
-		for (int i = 0; ; i++)
+		// sinon, il y a de fortes chance que ce soit a cause de la creation d'un nouveau perso
+		// #LISTE_ACCOUNT_HERE   -  ce hashtag repere tous les endroit que je dois updater quand je rajoute un nouveau compte - ou perso important
+		if ( guid__ == 9 // PBody
+		||  guid__ == 10 // Atlas
+		||  guid__ == 12 // Inge
+		||  guid__ == 13 // Coniplan
+		||  guid__ == 14 // Enchant
+		||  guid__ == 15 // Herbor
+		)
 		{
-			Sleep(1000);
-			int aaaa = 0;
+			sLog->outBasic("					 : C EST GRAVE CAR CE N'EST PAS UN NOUVEAU PERSO !!!");
+
+			// bloquer le serveur
+			for (int i = 0; ; i++)
+			{
+				Sleep(1000);
+				int aaaa = 0;
+			}
+		}
+		else
+		{
+			sLog->outBasic("					 : RIEN DE GRAVE. C'est certainement un nouveau perso");
+			int a=0;
 		}
 
 
@@ -3367,42 +3645,6 @@ void PlayerModeDataRicha::richa_exportTo_ristat_()
 	}
 	sprintf(outt, "\r\nnbMAIL,%d\r\n", nbMAIL);
 	fwrite(outt, 1, strlen(outt), fout);
-
-
-
-	// ACHIEVEMENT TODO
-	// en gros le but est de sauvegarder la database  character_achievement_progress  pour chaque perso
-	// mais j'ai pas encore tout bien compris
-	{
-	    // suppress sending packets
-		for (uint32 i=0; i<ACHIEVEMENT_CRITERIA_TYPE_TOTAL; ++i)
-		{
-			AchievementCriteriaTypes typeAchievement = (AchievementCriteriaTypes(i));
-			if ( typeAchievement == ACHIEVEMENT_CRITERIA_TYPE_MONEY_FROM_QUEST_REWARD )
-			{
-
-			}
-		}
-
-		m_thisOwner->m_achievementMgr; // <--- ca c'est le tracker pour le perso
-
-		AchievementCriteriaEntryList const* achievementCriteriaList = sAchievementMgr->GetAchievementCriteriaByType(ACHIEVEMENT_CRITERIA_TYPE_MONEY_FROM_QUEST_REWARD);
-		int counter = 0;
-		for (AchievementCriteriaEntryList::const_iterator i = achievementCriteriaList->begin(); i != achievementCriteriaList->end(); ++i)
-		{
-			AchievementCriteriaEntry const* achievementCriteria = (*i);
-			AchievementEntry const* achievement = sAchievementStore.LookupEntry(achievementCriteria->referredAchievement);
-			if (!achievement)
-				continue;
-			//sprintf(outt, "ACHIEVEMENT_CRITERIA_TYPE_MONEY_FROM_QUEST_REWARD,%d\r\n", achievementCriteria->quest_reward_money.goldInCopper);
-			//fwrite(outt, 1, strlen(outt), fout);
-			counter++;
-		}
-		int a=0;
-	}
-
-
-
 
 	sprintf(outt, "\r\n#LIST_SPELLS =================================\r\n");
 	fwrite(outt, 1, strlen(outt), fout);
@@ -4432,7 +4674,7 @@ void PlayerModeDataRicha::richa_exportTo_ristat_()
 		fwrite(outt, 1, strlen(outt), fout);
 
 
-		sprintf(outt, "name,%s\r\n", m_thisOwner->GetName());
+		sprintf(outt, "name,%s\r\n", m_thisOwner->GetName().c_str());
 		fwrite(outt, 1, strlen(outt), fout);
 
 		uint8 race = m_thisOwner->getRace();
@@ -4556,6 +4798,101 @@ void PlayerModeDataRicha::richa_exportTo_ristat_()
 
 
 
+
+	// ACHIEVEMENT
+	{
+		sprintf(outt, "\r\n#ACHIEVEMENT =================================\r\n");
+		fwrite(outt, 1, strlen(outt), fout);
+
+		//std::ofstream outfile2;
+		//outfile2.open("C:/ASUP/_outTest2.txt", std::ios_base::app | std::ios_base::binary ); // append instead of overwrite
+
+		// parcourir tous les achievements
+		int nbAchievement1 = 0;
+		int nbIgnoredBecauseEmptyName = 0;
+		for (uint32 i = 0; i < sAchievementStore.GetNumRows(); ++i)
+		{
+			if (AchievementEntry const* achievement = sAchievementStore.LookupEntry(i))
+			{
+				std::string achievementName = std::string(achievement->name[0]);
+
+				if ( achievementName == "" )
+				{
+					// ca va en sauter que 3  :  3696  4788   4789
+					// surement des achievement vide a ignorer.
+					nbIgnoredBecauseEmptyName++;
+					continue;
+				}
+
+				std::string line = "";
+
+				bool hasAchieve = m_thisOwner->m_achievementMgr->HasAchieved(i);
+
+				line += std::to_string(i); // l'id correspond a   achievement=XXX  dans  wowhead,  dkprod.ch  ...etc...
+				line += ",   \"";
+				line += achievementName;
+				line += "\",    ";
+
+				if ( hasAchieve )
+				{
+					nbAchievement1++;
+					int a=0;
+					line += "ACHIEVED";
+				}
+				else
+				{
+					for (uint32 entryId = 0; entryId < sAchievementCriteriaStore.GetNumRows(); ++entryId)
+					{
+						AchievementCriteriaEntry const* criteria = sAchievementCriteriaStore.LookupEntry(entryId);
+						if (!criteria)
+							continue;
+
+						uint32 achivementCriteriaID = criteria->ID;
+
+						AchievementEntry const* achievement = sAchievementStore.LookupEntry(criteria->referredAchievement);
+						if (!achievement)
+						{
+							int aaa=0;
+							continue;
+						}
+
+						if ( achievement->ID == i )
+						{
+							uint32 counterOut = 0;
+							bool found = false;
+							m_thisOwner->m_achievementMgr->richa_GetInfo(achivementCriteriaID, counterOut, found);
+
+							line += std::to_string(achivementCriteriaID);
+							line += "/";
+							line += std::to_string(criteria->requiredType); // valeur de type :  AchievementCriteriaTypes
+							line += "=";
+
+							if ( found )
+							{
+								line += std::to_string(counterOut);
+								line += ", ";
+							}
+							else
+							{
+								line += "???, ";
+							}
+						}
+
+					}
+				}
+
+				line += "\r\n";
+
+				//outfile2 << line;
+				fwrite(line.c_str(), 1, strlen(line.c_str()), fout);
+
+				int a=0;
+			}
+		}
+
+		int aaa=0;
+
+	}
 
 
 	sprintf(outt, "\r\n#END_OF_FILE =================================\r\n");
@@ -5054,12 +5391,12 @@ void PlayerModeDataRicha::Richa_OnCanTakeQuest(Quest const* quest, bool msg) con
 }
 
 
-
-
+std::vector<uint32> RichardClass::m_spellsToLearnWith61288; 
 std::map<time_t, RichardClass::RICHARD_TRY_LOOT_WANT  > RichardClass::g_wantLoot;
 int RichardClass::g_fillLootCounter_Youhaicoin = 0;
 time_t RichardClass::g_timeLastLoot_Youhaicoin = 0;
 std::mutex RichardClass::g_mutex_SavePlayerProtection;
+std::set<uint64> RichardClass::g_listMineraiThatDoesNOTsummonNewMinerai;
 
 void RichardClass::StaticRichardVariables_Init()
 {
@@ -5311,6 +5648,183 @@ void RichardClass::StaticRichardVariables_Save()
 	return;
 }
 
+AchievementMgr* PlayerModeDataRicha::GetAchievementMgr2() const
+{
+	return m_thisOwner->m_achievementMgr;
+}
+
+void RichardClass::UpdateAchievement_Fill(Player* player, UPDATE_ACHIEVEMENT_RICHA& dataBefore)
+{
+
+	// reset
+	dataBefore = UPDATE_ACHIEVEMENT_RICHA();
+
+	// parcourir tous les achievements
+	int nbIgnoredBecauseEmptyName = 0;
+	for (uint32 i = 0; i < sAchievementStore.GetNumRows(); ++i)
+	{
+		if (AchievementEntry const* achievement = sAchievementStore.LookupEntry(i))
+		{
+			std::string achievementName = std::string(achievement->name[0]);
+
+			if ( achievementName == "" )
+			{
+				// ca va en sauter que 3  :  3696  4788   4789
+				// surement des achievement vide a ignorer.
+				nbIgnoredBecauseEmptyName++;
+				continue;
+			}
+
+
+			if (
+				// lister ici les achievement qui nous interressent
+				   i == 1244 // "Well Read" : lire des livres dans tous Azeroth
+				|| i == 346 // "Beverages consumed"   (utilisé par l'achievement   1833,   "It's Happy Hour Somewhere",  )
+				|| i == 347 // "Food eaten"           (utilisé par l'achievement   1832,   "Tastes Like Chicken",  )
+				|| i == 1206 // "To All The Squirrels I've Loved Before"
+				|| i == 2557 // "To All The Squirrels Who Shared My Life"
+				|| i == 2556 // "Pest Control"
+				)
+			{
+
+				//std::string line = "";
+
+				bool hasAchieve = player->m_richa.GetAchievementMgr2()->HasAchieved(i);
+
+				//line += std::to_string(i); // l'id correspond a   achievement=XXX  dans  wowhead,  dkprod.ch  ...etc...
+				//line += ",   \"";
+				//line += achievementName;
+				//line += "\",    ";
+
+				if ( hasAchieve )
+				{
+					int a=0;
+					//line += "ACHIEVED";
+
+					if ( i == 1244 ) { dataBefore.nbLivreLu = -1; }
+					if ( i == 346 ) { dataBefore.nbBoissonBues = -1; }
+					if ( i == 347 ) { dataBefore.nbPlatMange = -1; }
+					if ( i == 1206 ) { dataBefore.nbLove1 = -1; }
+					if ( i == 2557 ) { dataBefore.nbLove2 = -1; }
+					if ( i == 2556 ) { dataBefore.nbInsectTues = -1; }
+
+				}
+				else
+				{
+					
+
+					for (uint32 entryId = 0; entryId < sAchievementCriteriaStore.GetNumRows(); ++entryId)
+					{
+						AchievementCriteriaEntry const* criteria = sAchievementCriteriaStore.LookupEntry(entryId);
+						if (!criteria)
+							continue;
+
+						uint32 achivementCriteriaID = criteria->ID;
+
+						if ( achivementCriteriaID == 4710 )
+						{
+							int a=0;
+						}
+
+						AchievementEntry const* achievement = sAchievementStore.LookupEntry(criteria->referredAchievement);
+						if (!achievement)
+						{
+							int aaa=0;
+							continue;
+						}
+
+						if ( achievement->ID == i )
+						{
+							uint32 counterOut = 0;
+							bool found = false;
+							player->m_richa.GetAchievementMgr2()->richa_GetInfo(achivementCriteriaID, counterOut, found);
+
+							//line += std::to_string(achivementCriteriaID);
+							//line += "/";
+							//line += std::to_string(criteria->requiredType); // valeur de type :  AchievementCriteriaTypes
+							//line += "=";
+
+							if ( found )
+							{
+								//line += std::to_string(counterOut);
+								//line += ", ";
+
+								if ( i == 1244 ) { dataBefore.nbLivreLu ++; }
+								if ( i == 346 ) { dataBefore.nbBoissonBues  ++; }
+								if ( i == 347 ) { dataBefore.nbPlatMange  ++; }
+								if ( i == 1206 ) { dataBefore.nbLove1  ++;}
+								if ( i == 2557 ) { dataBefore.nbLove2  ++; }
+								if ( i == 2556 ) { dataBefore.nbInsectTues  ++; }
+							}
+							else
+							{
+								//line += "???, ";
+							}
+						}
+
+					}
+
+
+				}
+
+
+
+
+				//line += "\r\n";
+
+			}
+
+			int a=0;
+		}
+	}
+
+	int aaa=0;
+
+	return;
+}
+
+void RichardClass::UpdateAchievement_Before(Player* player, UPDATE_ACHIEVEMENT_RICHA& dataBefore)
+{
+	UpdateAchievement_Fill( player, dataBefore);
+	return;
+}
+
+void RichardClass::UpdateAchievement_After(Player* player, const UPDATE_ACHIEVEMENT_RICHA& achievementBEFORE)
+{
+	UPDATE_ACHIEVEMENT_RICHA achievementAFTER;
+	UpdateAchievement_Fill( player, achievementAFTER);
+
+	char outputt[2048];
+	if ( achievementBEFORE.nbLivreLu < achievementAFTER.nbLivreLu )
+	{
+		sprintf(outputt,"Nouveau Livre ! (%d)", achievementAFTER.nbLivreLu);
+		player->Say(outputt, LANG_UNIVERSAL);
+	}
+	if ( achievementBEFORE.nbPlatMange < achievementAFTER.nbPlatMange )
+	{
+		sprintf(outputt,"Miam Miam ! (%d)", achievementAFTER.nbPlatMange);
+		player->Say(outputt, LANG_UNIVERSAL);
+	}
+	if ( achievementBEFORE.nbBoissonBues < achievementAFTER.nbBoissonBues )
+	{
+		sprintf(outputt,"Glou Glou ! (%d)", achievementAFTER.nbBoissonBues);
+		player->Say(outputt, LANG_UNIVERSAL);
+	}
+	if ( achievementBEFORE.nbLove1 + achievementBEFORE.nbLove2  < achievementAFTER.nbLove1 + achievementAFTER.nbLove2 )
+	{
+		sprintf(outputt,"Petit animal ! (%d)", achievementAFTER.nbLove1 + achievementAFTER.nbLove2);
+		player->Say(outputt, LANG_UNIVERSAL);
+	}
+	if ( achievementBEFORE.nbInsectTues < achievementAFTER.nbInsectTues )
+	{
+		sprintf(outputt,"Meurt Insecte ! (%d)", achievementAFTER.nbInsectTues);
+		player->Say(outputt, LANG_UNIVERSAL);
+	}
+	int a=0;
+	return;
+}
+
+
 bool RichardClass::RichaHandleLootRandom(Loot* loot, int lootTypeItemOrGold, Player* _player)
 {
 
@@ -5340,7 +5854,6 @@ bool RichardClass::RichaHandleLootRandom(Loot* loot, int lootTypeItemOrGold, Pla
 
 
 
-
 	//Item* item = GetItemByGuid(guid);
 	/*
 	LootItemContainer::iterator itr = sLootItemStorage->lootItemStore.find(loot->containerId);
@@ -5361,19 +5874,38 @@ bool RichardClass::RichaHandleLootRandom(Loot* loot, int lootTypeItemOrGold, Pla
 	}
 	//lootOrigin_item = loot->item->GetObjectGuid().IsItem();
 	*/
-	LootType lootType = loot->loot_type;
+
+
+	// lootType peut etre faux, par exemple pour un ITEM, il va etre egal a CREATURE.
+	// donc je conseille j'utiliser lootTypeV2
+	// je conseille d'utiliser les 2 en meme temps, qui peuvent quand meme etre complementaire
+	LootType lootTypeV1 = loot->loot_type;
+	TypeID lootTypeV2   = loot->m_richa.GetType();
+
+
 
 	// 0   undef
-	// 1   creature corpse
+	// 1   creature corpse : click droit sur un cadavre de mob tué par un joueur 
 	// 2   gameobj
-	// 3   item - marche pas
+	// 3   item :  click droit sur un item qui loot des items, exemple: item=9363  .  a noter que toutes les ouverture d'item, ne passe pas par ce code. exemple: item=5523.  je sais pas ou ca passe, mais c'est pas important.
 	// 4  skinning
-	// 5  pickpocket ( peut etre ouverture d'un item aussi , bug ?)
+	// 5  pickpocket
 	int lootOrigin = 0;
-	if (lootType == LOOT_CORPSE)
+
+	if ( false ) {  }
+	else if (lootTypeV1 == LOOT_CORPSE && lootTypeV2 == TYPEID_UNIT )
 		lootOrigin = 1;
-	if (lootType == LOOT_SKINNING)
+	else if (lootTypeV1 == LOOT_SKINNING)
 		lootOrigin = 4;
+	else if (lootTypeV2 == TYPEID_ITEM)
+		lootOrigin = 3;
+	else
+	{
+		// ca serait bien a chaque fois que j'ai ce message de completer la liste
+		// ... meme si pour l'instant, ce qui interresse vraiment  RichardClass::RichaHandleLootRandom, c'est juste de savoir si  lootOrigin est == 1  ou pas
+		sLog->outBasic("RICHAR: LOOT - type ????????????????? -  lootTypeV1=%d  lootTypeV2=%d ", (int)lootTypeV1, (int)lootTypeV2);
+		lootOrigin = 0;
+	}
 
 
 	/*
@@ -5609,7 +6141,7 @@ bool RichardClass::RichaHandleLootRandom(Loot* loot, int lootTypeItemOrGold, Pla
 					//g_wantLoot[loot->m_richa.m_richard_timeCreated].winnerSaidIWinAlone = true;
 				}
 
-				sLog->outBasic("RICHAR: DEBUG_TEXT_LOOT - le joueur qui gagne le loot est %s ", g_wantLoot[loot->m_richa.m_richard_timeCreated].winner->GetName());
+				sLog->outBasic("RICHAR: DEBUG_TEXT_LOOT - le joueur qui gagne le loot est %s ", g_wantLoot[loot->m_richa.m_richard_timeCreated].winner->GetName().c_str());
 
 			}
 
@@ -6431,17 +6963,52 @@ void RichardClass::OnFillLoot(uint32 lootId, LootStore const& store, Player* loo
 
 		richard01_test = 1;
 	}
-	else if (lootOrigin == 2) // game object  (genre : coffre)
+	else if (lootOrigin == 2) // game object  (genre : coffre, plante )
 	{
 		GameObject* goLooting = this___->m_richa.GetGameObject();  // GetLootTarget()->GetMap()->GetGameObject(GetLootTarget()->GetObjectGuid());
 		//const char* nameGo = goLooting->GetName();
 
 		if (goLooting)
 		{
+			// qq variable , juste pour le debug, ca peut servir
+			uint64_t guiddd = goLooting->GetGUID();
+			uint32 guidddlow = goLooting->GetGUIDLow();
+			uint32 guidddhigh = goLooting->GetGUIDHigh();
+			time_t respp = goLooting->GetRespawnTime();
+			uint32_t delayyy = goLooting->GetRespawnDelay();
+
 			GameObjectTemplate const* goinfo = goLooting->GetGOInfo();
 
 			if (goinfo)
 			{
+
+
+
+				uint32 lockId = goinfo->chest.lockId;
+				LockEntry const* lockInfo = sLockStore.LookupEntry(lockId);
+				if ( lockInfo )
+				{
+					if ( lockInfo->Type[0] == LOCK_KEY_SKILL
+						&& ( lockInfo->Index[0] == LOCKTYPE_HERBALISM || lockInfo->Index[0] == LOCKTYPE_MINING ) )
+					{
+						// il semble que certaine plante ne vont pas provoquer de  GO_JUST_DEACTIVATED  une fois lootée.
+						//   exemple: GUID 26813  :  gobject entry=1618   un peu derriere la caravne rouge de goldshire, la plante Pacifique.
+						//   peut-etre a cause de la gestion des pool.
+						//   ca vient peut etre aussi parce que   respp  et/ou   delayyy  =  0
+						//   du coup je pense que je vais les provoquer moi meme, pour etre sur.
+						// Car si jamais je force pas ca, alors l'objet ne desparait pas avec mon source code qui est dans le   case GO_JUST_DEACTIVATED:  de GameObject::Update
+
+						// en fait, ceci n'a pas marché
+						//goLooting->SetLootState(GO_JUST_DEACTIVATED);
+
+						// .. par contre ceci semble marcher
+						goLooting->SetRespawnTime(3*HOUR);
+
+						int a=0;
+					}
+				}
+
+
 
 				const char* nameGo = goinfo->name.c_str();
 
@@ -6455,7 +7022,10 @@ void RichardClass::OnFillLoot(uint32 lootId, LootStore const& store, Player* loo
 				// 1PO si notre perso est niveau  >=30  et  <40 
 				// 2PO si notre perso est niveau  >=40  et  <50 
 				// 4PO si notre perso est niveau  >=50  et  <60 
-				// 5PO pour 60
+				// 5PO pour 60 et +
+				//
+				// dans WOTLK, j'ai décidé de donner moins d'importance au coffres. car statistiquement, on en ouvre plus que vanilla par session de jeu
+				// je vais donc diviser ces PO par coeffWOTLK
 
 				if (
 					nameGo
@@ -6493,6 +7063,9 @@ void RichardClass::OnFillLoot(uint32 lootId, LootStore const& store, Player* loo
 
 					uint32  goldBase = 0;
 
+					// on va dire 2 fois moins d'or pour l'instant...
+					const uint32 coeffWOTLK = 2;
+
 					if (playerlevel >= 1 && playerlevel < 10)
 					{
 						goldBase = 1 * 100;
@@ -6522,6 +7095,8 @@ void RichardClass::OnFillLoot(uint32 lootId, LootStore const& store, Player* loo
 						goldBase = 5 * 100 * 100;
 					}
 
+					goldBase /= coeffWOTLK;
+
 					// + ou - 20%
 
 					int minGoldBase = (int)goldBase - ((int)goldBase * 20) / 100;
@@ -6541,12 +7116,11 @@ void RichardClass::OnFillLoot(uint32 lootId, LootStore const& store, Player* loo
 					);
 
 
-
-					//m_gold = uint32(urand(minAmount >> 8, maxAmount >> 8) 
-					//m_gold = 10001;
-
 				}
-				else if (goinfo->entry == 400001) // coffre de l'aventurier
+				else if (
+					false && // dans WOTLK je desactive le coffre de l'aventurier. je m'en suis pas trop servi dans Vanilla, et avec le .need, le coffre de l'aventurier a moins utile qu'avant.
+					goinfo->entry == 400001 // coffre de l'aventurier
+					) 
 				{
 
 					// cette ligne ne marche pas
@@ -7097,7 +7671,7 @@ void RichardClass::OnFillLoot(uint32 lootId, LootStore const& store, Player* loo
 						{
 							char messageOut[2048];
 							sprintf(messageOut, "count=%d - LOOT!",g_fillLootCounter_Youhaicoin);
-							lootOwner->Say(messageOut, LANG_UNIVERSAL);
+							//lootOwner->Say(messageOut, LANG_UNIVERSAL);
 						}
 					
 						//AddItem(coinItemID1, 1, 0, 0); <-- version cmangos
@@ -7122,7 +7696,7 @@ void RichardClass::OnFillLoot(uint32 lootId, LootStore const& store, Player* loo
 						{
 							char messageOut[2048];
 							sprintf(messageOut, "count=%d - pas loot (car timing %f)",g_fillLootCounter_Youhaicoin , (float)secondesSinceLastLoot/(float)60.0f);
-							lootOwner->Say(messageOut, LANG_UNIVERSAL);
+							//lootOwner->Say(messageOut, LANG_UNIVERSAL);
 						}
 					}
 
@@ -7133,7 +7707,7 @@ void RichardClass::OnFillLoot(uint32 lootId, LootStore const& store, Player* loo
 					{
 						char messageOut[2048];
 						sprintf(messageOut, "count=%d - pas loot (car count)",g_fillLootCounter_Youhaicoin);
-						lootOwner->Say(messageOut, LANG_UNIVERSAL);
+						//lootOwner->Say(messageOut, LANG_UNIVERSAL);
 					}
 				}
 			}
@@ -7143,7 +7717,7 @@ void RichardClass::OnFillLoot(uint32 lootId, LootStore const& store, Player* loo
 				{
 					char messageOut[2048];
 					sprintf(messageOut, "count=%d - pas loot (car PERSO) (timing= %f)",g_fillLootCounter_Youhaicoin , secondesSinceLastLoot/60.0);
-					lootOwner->Say(messageOut, LANG_UNIVERSAL);
+					//lootOwner->Say(messageOut, LANG_UNIVERSAL);
 				}
 			}
 
@@ -7208,12 +7782,185 @@ void RichardClass::OnFillLoot(uint32 lootId, LootStore const& store, Player* loo
 	}
 	*/
 
-	// FIN GROSSE MODIF RICHARD
-	////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 
 
+	///////////////////////////////////////////////////////////////////////////////////////
+	// si jamais on mine un minerai / une plante,
+	// on regarde s'il n'y en a pas d'autre trop proche, ceci serait un bug,  et on les enleve
+
+	{
+
+		bool thisIsMinerai = false;
+		bool thisIsPlant = false;
+		bool thisIsChest = false;
+
+		if (strcmp(store.GetName(), "gameobject_loot_template") == 0)
+		{
+			GameObject* go = this___->m_richa.GetGameObject();
+			if ( go && go->GetGoType() == GAMEOBJECT_TYPE_CHEST  )
+			{
+				uint32 entryID = go->GetEntry();
+				GameObjectTemplate const* gameObjectInfo = sObjectMgr->GetGameObjectTemplate(entryID);
+				if ( gameObjectInfo )
+				{
+					uint32 lockId = gameObjectInfo->GetLockId();
+					LockEntry const* lockInfo = sLockStore.LookupEntry(lockId);
+					if ( lockInfo )
+					{
+
+						if ( gameObjectInfo->displayId == 259 )
+						{
+							thisIsChest = true;
+						}
+
+						if ( lockInfo->Type[0] == LOCK_KEY_SKILL &&  lockInfo->Index[0] == LOCKTYPE_HERBALISM )
+						{
+							thisIsPlant = true;
+						}
+						if ( lockInfo->Type[0] == LOCK_KEY_SKILL &&  lockInfo->Index[0] == LOCKTYPE_MINING )
+						{
+							thisIsMinerai = true;
+						}
+					}
+				}
+			}
+		}
+
+		if ( thisIsPlant || thisIsMinerai || thisIsChest )
+		{
+			// qqindications sur la distance
+			// zoomer a fond sur la mini map -  dezoomer 1 fois,  distance=34 corresponds a la distance entre joueur bordure de la minimap
+			// zoomer a fond sur la mini map -  dezoomer 2 fois,  distance=50 corresponds (en gros) a la distance entre joueur bordure de la minimap
+			// avec le temps, 40 je trouve que c'est legerement trop petit  -  je passe a 50
+			float distance = 50.0f; // nombre décidé empiriquement
+
+			if ( thisIsChest )
+			{
+				distance = 200.0f; // pour les chest, on peut mettre une grande distance.
+			}
+
+			uint32 count = 0;
+
+			Player* player = lootOwner;
+
+			PreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_SEL_GAMEOBJECT_NEAREST);
+			stmt->setFloat(0, player->GetPositionX());
+			stmt->setFloat(1, player->GetPositionY());
+			stmt->setFloat(2, player->GetPositionZ());
+			stmt->setUInt32(3, player->GetMapId());
+			stmt->setFloat(4, player->GetPositionX());
+			stmt->setFloat(5, player->GetPositionY());
+			stmt->setFloat(6, player->GetPositionZ());
+			stmt->setFloat(7, distance * distance);
+			stmt->setUInt32(8, player->GetPhaseMask());
+			PreparedQueryResult result = WorldDatabase.Query(stmt);
+
+			if (result)
+			{
+				do
+				{
+					Field* fields = result->Fetch();
+					uint32 guid = fields[0].GetUInt32();   // ID unique de ce gameobject
+					uint32 entry = fields[1].GetUInt32(); // ID du template de ce gameobject
+					float x = fields[2].GetFloat();
+					float y = fields[3].GetFloat();
+					float z = fields[4].GetFloat();
+					uint16 mapId = fields[5].GetUInt16();
+
+					GameObject* thisGo = this___->m_richa.GetGameObject();
+					// note : il faut faire attention quand on trnasforme un 32 guid en 64 guid,  bien utiliser  MAKE_NEW_GUID
+					GameObject* gameObjectNear = thisGo->GetMap()->GetGameObject(MAKE_NEW_GUID(guid, entry, HIGHGUID_GAMEOBJECT));
+
+					uint32 thisGUID = thisGo->GetGUIDLow();
+
+					
+					if ( gameObjectNear&& guid == thisGUID 
+					)
+					{
+						int e=0;
+					}
+
+					if ( gameObjectNear
+						&& guid != thisGUID // si l'objet "voisin" n'est pas l'objet qu'on loot
+					)
+					{
+						GameObjectTemplate const* gameObjectInfo = sObjectMgr->GetGameObjectTemplate(entry);
+
+						if (!gameObjectInfo)
+							continue;
+
+						uint32 lockId = gameObjectInfo->GetLockId();
+						LockEntry const* lockInfo = sLockStore.LookupEntry(lockId);
+						if ( lockInfo )
+						{
+
+							bool thisIsChest2 = false;
+							if ( gameObjectInfo->displayId == 259 )
+							{
+								thisIsChest2 = true;
+							}
+
+							bool okRemove = false;
+							if ( thisIsPlant && lockInfo->Type[0] == LOCK_KEY_SKILL &&  lockInfo->Index[0] == LOCKTYPE_HERBALISM )
+							{
+								okRemove = true;
+							}
+							if ( thisIsMinerai && lockInfo->Type[0] == LOCK_KEY_SKILL &&  lockInfo->Index[0] == LOCKTYPE_MINING )
+							{
+								okRemove = true;
+							}
+							if ( thisIsChest && thisIsChest2 )
+							{
+								okRemove = true;
+							}
+
+							if ( okRemove )
+							{
+								LootState lootstatt = gameObjectNear->getLootState();
+								std::string currentStateStr = "??";
+								if ( lootstatt == GO_NOT_READY ) { currentStateStr = "GO_NOT_READY"; }
+								if ( lootstatt == GO_READY ) { currentStateStr = "GO_READY"; }
+								if ( lootstatt == GO_ACTIVATED ) { currentStateStr = "GO_ACTIVATED"; }
+								if ( lootstatt == GO_JUST_DEACTIVATED ) { currentStateStr = "GO_JUST_DEACTIVATED"; }
+
+								sLog->outBasic("RICHAR REMOVE-NEAR-MINING : guid=%d entry=%d name=%s state=%s", guid, entry, gameObjectInfo->name.c_str() , currentStateStr.c_str());
+								
+								//AVANT:
+								// RichardClass::g_listMineraiThatDoesNOTsummonNewMinerai.insert(gameObjectNear->GetGUID()); // pour forcer la plante/minerai a pas respawn, on l'ajoute a la liste des deja respawn
+								// gameObjectNear->SetLootState(GO_JUST_DEACTIVATED); // j'ai l'impression que c'est le bon call a faire pour "desactiver" un minerai/plante
+
+								// MAINTENANT :
+								// autant le delete direct
+								// ca assure qu'il respawn pas.
+								// a noter que ca ne le delete pas de la database  ( si je redemarre le serveur, le minerai sera toujours la )
+								// si je voulais le delete de la database, il faudrait faire   DeleteFromDB ,  comme avec la commande .gobject delete.
+
+								// ce remove from pool je l'ai rajouté apres.  j'ai l'impression que ca aide pas mal a bien garantir que le gameobject revienne jamais ( avant de redemarrer le serveur )
+								uint32_t guiddddd = gameObjectNear->GetDBTableGUIDLow();
+								uint32 poool = sPoolMgr->IsPartOfAPool<GameObject>(guiddddd);
+								bool removed = sPoolMgr->Richa_RemoveFromPool<GameObject>(guiddddd);
+
+
+								gameObjectNear->SetRespawnTime(0);        
+								gameObjectNear->Delete();
+
+
+								int aa=0;
+
+							}
+
+						}
+
+					}
+
+					++count;
+				} while (result->NextRow());
+			}
+
+		}
+	}
 
 
 
@@ -7411,6 +8158,14 @@ Creature* LootModeDataRicha::GetCreature()
 
 }
 
+TypeID LootModeDataRicha::GetType()
+{
+	if ( m_lootCreator == nullptr )
+		return (TypeID)-1;
+
+	TypeID typp = m_lootCreator->GetTypeId();
+	return typp;
+}
 
 // si on voit que tous les loot d'un objet sont negatif, cela veut dire que cet objet n'est QUE pour les quetes
 //	et donc qu'on peut le mettre en loot commun

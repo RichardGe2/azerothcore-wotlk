@@ -737,6 +737,108 @@ void GameObject::Update(uint32 diff)
 
             m_respawnTime = time(NULL) + m_respawnDelayTime;
 
+
+
+
+			///////////////////////////////////////////////////////////
+			// RICHARD  MINERAIS ET PLANTES peuvent etre minés 2 FOIS
+			// je fais ca pour les coffres egalement
+			//    exemple de spot ou il y a 3 coffres a cotés :  pres de la maison de Marie d'Aveugle, dans Darkshire.
+
+			if (GetGoType() == GAMEOBJECT_TYPE_CHEST)
+            {
+				GameObjectTemplate const* goInfo = GetGOInfo();
+				uint32 lockId = goInfo->chest.lockId;
+				LockEntry const* lockInfo = sLockStore.LookupEntry(lockId);
+				if ( lockInfo )
+				{
+					bool itIsChest = false;
+					if ( goInfo->displayId == 259 )
+					{
+						// pour info, je sais pas si c'est general a tous les chest.
+						// pour 1 chest j'avais
+						// Type[]  = LOCK_KEY_NONE , LOCK_KEY_SKILL , LOCK_KEY_SKILL
+						// Index[] =   0           , LOCKTYPE_OPEN   ,  LOCKTYPE_TREASURE
+						itIsChest = true;
+					}
+
+					if (
+						itIsChest // si c'est un coffre
+						||
+						//... ou si c'est un minerai/plante
+						(
+						     lockInfo->Type[0] == LOCK_KEY_SKILL
+						&& ( lockInfo->Index[0] == LOCKTYPE_HERBALISM || lockInfo->Index[0] == LOCKTYPE_MINING ) )
+						)
+					{
+						
+
+						uint64 guiddd = GetGUID();
+
+						if ( !itIsChest ) // pas de respawn pour un chest, bien entendu.
+						{
+						
+							if ( RichardClass::g_listMineraiThatDoesNOTsummonNewMinerai.find(guiddd) == RichardClass::g_listMineraiThatDoesNOTsummonNewMinerai.end() )
+							{	// si le minerai n'est PAS dans la liste :
+								// alors on invoque un nouveau minerai temporaire a coté.
+
+								//MonsterSay("XXXXX",LANG_UNIVERSAL, 0); <-- ca fait pas de bulle de BD, ca se met juste dans le cannal de discussion
+
+								// equivalent de la commande : ".gobject add temp XXX"
+								{
+									const uint32 TroisHeures = 3*60*60;
+
+									uint32 spawntm = TroisHeures;
+
+									float x = GetPositionX() + 1.0f;
+									float y = GetPositionY();
+									float z = GetPositionZ();
+									float ang = GetOrientation();
+
+									float rot2 = sin(ang/2);
+									float rot3 = cos(ang/2);
+
+									uint32 objectId = GetEntry();
+
+									GameObject* newgo = SummonGameObject(objectId, x, y, z, ang, 0, 0, rot2, rot3, spawntm);
+									RichardClass::g_listMineraiThatDoesNOTsummonNewMinerai.insert(newgo->GetGUID()); // on ajoute a  la liste  pour ne pas que ce nouveau minerai provoque un respawn a son tour
+								}
+							}
+							else
+							{	// si le minerai se trouve dans la liste:
+								// je pense que c'est mieux de le retirer,  comme on va Delete cet objet,  ca evite de garder un GUID d'objet delete.
+
+								RichardClass::g_listMineraiThatDoesNOTsummonNewMinerai.erase(guiddd);
+							}
+
+						}
+
+						// dans tous les cas, si c'est une herbe ou un minerai, on le delete.
+						// cela assure qu'il va pas respawn .
+						// faire un  m_respawnTime=0   ou   m_respawnTime=time(NULL)+9999;    ne va pas toujours marcher a cause de la gestion des "pool" qui s'en fou du temps de respawn j'ai l'impression
+						// voila pourquoi j utiliser Delete.
+						// a noter que ca ne le delete pas de la database  ( si je redemarre le serveur, le minerai sera toujours la )
+						// si je voulais le delete de la database, il faudrait faire   DeleteFromDB ,  comme avec la commande .gobject delete.
+
+						// ce remove from pool je l'ai rajouté apres.  j'ai l'impression que ca aide pas mal a bien garantir que le gameobject revienne jamais ( avant de redemarrer le serveur )
+						uint32_t guiddddd = GetDBTableGUIDLow();
+						uint32 poool = sPoolMgr->IsPartOfAPool<GameObject>(guiddddd);
+						bool removed = sPoolMgr->Richa_RemoveFromPool<GameObject>(guiddddd);
+
+						SetRespawnTime(0);        
+						Delete();
+						int aaaa=0;
+					}
+
+				}
+			}
+
+			/////////////////////////////////////////////////////////////
+
+
+
+
+
             // if option not set then object will be saved at grid unload
             if (GetMap()->IsDungeon())
                 SaveRespawnTime();

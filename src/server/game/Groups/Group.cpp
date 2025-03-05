@@ -1988,8 +1988,17 @@ void Group::ResetInstances(uint8 method, bool isRaid, Player* leader)
 
 void Group::_homebindIfInstance(Player* player)
 {
-    if (player && !player->IsGameMaster() && player->FindMap() && sMapStore.LookupEntry(player->GetMapId())->IsDungeon())
-        player->m_InstanceValid = false;
+
+
+   //  RICHARD -  #RICHA_PERMA_INSTANCE
+   //  je desactive ce bout de code qui est appelé quand un joueur quitte son groupe d'instance.
+   //  quand m_InstanceValid passe a TRUE pour un joueur, celui ci a 1 minute pour quitter l'instance, sinon il est TP au cimetiaire le plus proche (  RepopAtGraveyard  )
+   // if (player && !player->IsGameMaster() && player->FindMap() && sMapStore.LookupEntry(player->GetMapId())->IsDungeon())
+   //     player->m_InstanceValid = false;
+
+
+
+
 }
 
 void Group::_cancelHomebindIfInstance(Player* player)

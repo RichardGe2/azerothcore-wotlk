@@ -2,12 +2,14 @@
 
 #include <mutex>
 
+
 class Creature;
 class Quest;
 struct Loot;
 class LootStore;
 struct LootItem;
-
+class AchievementMgr;
+class Item;
 
 class CreatureModeDataRicha
 {
@@ -46,8 +48,11 @@ public:
 	void generateMoneyLoot_richa(uint32 minAmount, uint32 maxAmount, Creature* creatureLooting);
 
 	Creature* GetCreature();// return null if not creature
-
 	GameObject* GetGameObject();// return null if not GameObject
+
+	// LootModeDataRicha::GetType()  semble bcp mieux a utiliser que  Loot::loot_type .
+	// par exemple si on ouvre un item,  Loot::loot_type va etre egal a CREATURE.  alors que  GetType() retourne bien ITEM
+	TypeID GetType();
 
 	uint32 GetGUIDLow() const;
 
@@ -79,7 +84,7 @@ public:
 	void richard_countItem_pokeball(uint32& itemKeyRin0, uint32& quantity) const;
 
 
-
+	AchievementMgr* GetAchievementMgr2() const;
 
 public:
 	void Richard_InformDiscoveredNewArea(int areaFlag);
@@ -266,10 +271,11 @@ public:
 	static bool ExecuteCommand_richard_B(const char* text, Player* playerrrr);
 	static bool ExecuteCommand_richard_C(const char* text, Player* player);
 	static bool ExecuteCommand_richard_D(const char* text, Player* playerrr);
-
+	static bool ExecuteCommand_richard_E_questInfo(unsigned int questID , Player* playerrr); // return TRUE if taken in charge
 	
 
 	static unsigned long Richa_NiceLinkToIitemID(const char* str);
+	static unsigned long Richa_NiceLinkToQuestID(const char* str);
 
 	//convert example :
 	// 6507 -->  " |cffffffff|Hitem:6507:0:0:0:0:0:0:0:3|h[Brassards d'infanterie]|h|r"
@@ -279,7 +285,6 @@ public:
 	//bool Richar_listeventquest(char* args);
 
 
-
 	//  RETURN TRUE si le loot est accepté
 	//  RETURN FALSE si le loot est refusé
 	//
@@ -287,10 +292,6 @@ public:
 	// lootTypeItemOrGold = 2  pour gold loot
 	static bool RichaHandleLootRandom(Loot* loot, int lootTypeItemOrGold , Player* _player);
 
-
-
-	////////////////////////////////////////////////////////////////////////////////////////////////
-	// richard 
 
 	class RICHARD_TRY_LOOT_WANT_NB
 	{
@@ -347,6 +348,38 @@ public:
 	//static time_t g_timeFirstLoot_Youhaicoin;
 
 	static std::mutex g_mutex_SavePlayerProtection;
+
+	// si un minerai/plante GUID se retrouve dans cette liste, alors, quand il sera miné,
+	// il n'invoquera PAS de nouveau minerai a coté de lui.
+	static std::set<uint64> g_listMineraiThatDoesNOTsummonNewMinerai;
+
+
+	struct UPDATE_ACHIEVEMENT_RICHA
+	{
+		UPDATE_ACHIEVEMENT_RICHA()
+		{
+			nbLivreLu = 0;
+			nbPlatMange = 0;
+			nbBoissonBues = 0;
+			nbLove1 = 0;
+			nbLove2 = 0;
+			nbInsectTues = 0;
+		}
+		int nbLivreLu;
+		int nbPlatMange;
+		int nbBoissonBues;
+		int nbLove1;
+		int nbLove2;
+		int nbInsectTues;
+	};
+
+	static void UpdateAchievement_Fill(Player* player, UPDATE_ACHIEVEMENT_RICHA& dataBefore);
+	static void UpdateAchievement_Before(Player* player, UPDATE_ACHIEVEMENT_RICHA& dataBefore);
+	static void UpdateAchievement_After(Player* player, const UPDATE_ACHIEVEMENT_RICHA& dataBefore);
+
+	// une fois qu'il est init, ce tableua devrais etre de 64 cases.
+	// c'est la liste des spell ( creation de glyphes mineurs ) qu'on peut apprendre avec le spell 61288 = recherche en calligraphie mineures 
+	static std::vector<uint32> m_spellsToLearnWith61288; 
 
 };
 
